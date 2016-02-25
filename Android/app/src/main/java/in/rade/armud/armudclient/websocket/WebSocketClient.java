@@ -83,6 +83,7 @@ public class WebSocketClient {
                     URI origin = new URI(originScheme, "//" + mURI.getHost(), null);
 
                     SocketFactory factory = mURI.getScheme().equals("wss") ? getSSLSocketFactory() : SocketFactory.getDefault();
+
                     mSocket = factory.createSocket(mURI.getHost(), port);
 
                     PrintWriter out = new PrintWriter(mSocket.getOutputStream());
