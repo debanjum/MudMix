@@ -8,9 +8,13 @@ creation commands.
 
 """
 from evennia import DefaultCharacter
+from random import randint
 
 class Character(DefaultCharacter):
     """
+    Custom rule-restricted character. We randomize
+    the initial skill and ability values between 1-10.
+
     The Character defaults to reimplementing some of base Object's hook methods with the
     following functionality:
 
@@ -29,4 +33,26 @@ class Character(DefaultCharacter):
     at_post_puppet - Echoes "PlayerName has entered the game" to the room.
 
     """
-    pass
+    def at_object_creation(self):
+        "Called only when first created"
+        self.db.level = 1 
+        self.db.HP = 100
+        self.db.XP = 0
+        self.db.STR = randint(1, 10)
+        self.db.combat = randint(5, 10)
+
+    def return_appearance(self, looker):
+        """
+        The return from this method is what
+        looker sees when looking at this object.
+        """
+        text = super(Character, self).return_appearance(looker)
+        cscore = "\n(level: %s)\n(health: %s)\n(xp: %s)\n(strength: %s)\n(combat score: %s)" % (self.db.level, self.db.HP, self.db.XP, self.db.STR, self.db.combat)
+        if "\n" in text:
+            # text is multi-line, add score after first line
+            first_line, rest = text.split("\n", 1)
+            text = first_line + cscore + "\n" + rest
+        else:
+            # text is only one line; add score to end
+            text += cscore
+        return text
