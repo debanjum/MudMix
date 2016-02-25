@@ -46,14 +46,16 @@ class Location(BaseCommand):
 
             # Extract Location Metadata 
             if 'elements' in response:
+		loc_tag = 'LOC'	
+		room_name = response['elements'][0]['tags']['name']
                 if 'leisure' in response['elements'][0]['tags']:
-                    self.caller.msg(response['elements'][0]['tags']['name'] + "," + response['elements'][0]['tags']['leisure'])
+                    self.caller.msg(loc_tag + room_name + "," + response['elements'][0]['tags']['leisure'])
                 elif 'amenity' in response['elements'][0]['tags']:
-                    self.caller.msg(response['elements'][0]['tags']['name'] + "," + response['elements'][0]['tags']['amenity'])
+                    self.caller.msg(loc_tag + room_name + "," + response['elements'][0]['tags']['amenity'])
                 elif 'building' in response['elements'][0]['tags']:
-                    self.caller.msg(response['elements'][0]['tags']['name'] + "," + response['elements'][0]['tags']['building'])
+                    self.caller.msg(loc_tag + room_name + "," + response['elements'][0]['tags']['building'])
                 else:
-                    self.caller.msg(response['elements'][0]['tags']['name'])
+                    self.caller.msg(loc_tag + room_name)
             # If No Relevant Metadata 
             else:
                 self.caller.msg("You are in unchartered territory")

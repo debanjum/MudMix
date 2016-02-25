@@ -99,6 +99,7 @@ public class MainActivity extends ActionBarActivity implements
     protected String mLocInfoLabel;
 
     protected String mCurrentMonster;
+    protected String[] mCurrentCharacters;
     /**
      * Tracks the status of the location updates request. Value changes when the user presses the
      * Start Updates and Stop Updates buttons.
@@ -108,6 +109,7 @@ public class MainActivity extends ActionBarActivity implements
     protected Boolean mLoggedIn;
 
     protected static int MESSAGE_MAX_LENGTH = 50;
+    protected static String GET_CHAR_LIST = "charlist";
 
     /**
      * Time when the location was updated represented as a String.
@@ -144,6 +146,7 @@ public class MainActivity extends ActionBarActivity implements
         mConnected = false;
 
         mCurrentMonster = "";
+
 
         //count = 0;
         //Login to MUD
@@ -271,7 +274,8 @@ public class MainActivity extends ActionBarActivity implements
         public void onMessage(String message) {
             Log.d(WEBSOCKET_TAG, String.format("Got string message! %s", message));
             if (message.length() < MESSAGE_MAX_LENGTH) {
-                mLocInfoLabel = message.substring(3, message.length());
+                 message = message.substring(3, message.length());
+                parseMessage(message.split(","));
             }
         }
 
@@ -325,6 +329,24 @@ public class MainActivity extends ActionBarActivity implements
             client.send(querystring);
         }
     }
+
+    private void parseMessage(String[] splitMessage)
+    {
+        switch(splitMessage[0])
+        {
+            case "MSG":
+                if (mLocInfoLabel != splitMessage[1]) {
+                    mLocInfoLabel = splitMessage[1];
+                    client.send(GET_CHAR_LIST);
+                }
+                break;
+            case "CHARS":
+                mCurrentCharacters = Arrays.copyOfRange(splitMessage, 1, splitMessage.length - 1);
+                mCurrentMonster = mCurrentCharacters[1];
+                break;
+        }
+    }
+
 
 /**
  * END OF WEBSOCKETS
