@@ -1,0 +1,6 @@
+click
+requests>=2.3.0
+geojson>=1.0.9
+
+[test]
+pytest

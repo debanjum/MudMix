@@ -7,9 +7,9 @@ Commands describe the input the player can do to the game.
 
 from evennia import Command as BaseCommand
 from evennia import default_cmds
+import overpass, json
 
-
-class Command(BaseCommand):
+class Location(BaseCommand):
     """
     Inherit from this if you want to create your own
     command styles. Note that Evennia's default commands
@@ -31,11 +31,11 @@ class Command(BaseCommand):
     """
     # these need to be specified
 
-    key = "MyCommand"
+    key = "location"
     aliases = []
     locks = "cmd:all()"
     help_category = "General"
-
+    loc = []
     # optional
     # auto_help = False      # uncomment to deactive auto-help for this command.
     # arg_regex = r"\s.*?|$" # optional regex detailing how the part after
@@ -78,6 +78,9 @@ class Command(BaseCommand):
            self.obj - the object on which this command was defined. It is often
                          the same as `self.caller`.
         """
+        self.loc = self.args.split()
+        if len(self.loc)<2:
+            self.loc = self.args.split(',')
         pass
 
     def func(self):
@@ -86,53 +89,32 @@ class Command(BaseCommand):
         by the `cmdhandler` right after `self.parser()` finishes, and so has access
         to all the variables defined therein.
         """
-        self.caller.msg("Command called!")
+
+        # Invalid Arguments
+        if len(self.loc)<2:
+            self.caller.msg("Invalid Input")
+
+        else:
+            api = overpass.API()
+            map_query = '[out:json][timeout:25]; is_in('+self.loc[0]+','+self.loc[1]+'); (._;>;); out 5;'
+            response = json.loads(api.Get(map_query))
+
+            # Extract Location Metadata 
+            if 'elements' in response:
+                if 'leisure' in response['elements'][0]['tags']:
+                    self.caller.msg(response['elements'][0]['tags']['name'] + "," + response['elements'][0]['tags']['leisure'])
+                elif 'amenity' in response['elements'][0]['tags']:
+                    self.caller.msg(response['elements'][0]['tags']['name'] + "," + response['elements'][0]['tags']['amenity'])
+                elif 'building' in response['elements'][0]['tags']:
+                    self.caller.msg(response['elements'][0]['tags']['name'] + "," + response['elements'][0]['tags']['building'])
+                else:
+                    self.caller.msg(response['elements'][0]['tags']['name'])
+            # If No Relevant Metadata 
+            else:
+                self.caller.msg("You are in unchartered territory")
 
     def at_post_cmd(self):
         """
         This hook is called after `self.func()`.
         """
         pass
-
-
-class MuxCommand(default_cmds.MuxCommand):
-    """
-    This sets up the basis for Evennia's 'MUX-like' command style.
-    The idea is that most other Mux-related commands should
-    just inherit from this and don't have to implement parsing of
-    their own unless they do something particularly advanced.
-
-    A MUXCommand command understands the following possible syntax:
-
-        name[ with several words][/switch[/switch..]] arg1[,arg2,...] [[=|,] arg[,..]]
-
-    The `name[ with several words]` part is already dealt with by the
-    `cmdhandler` at this point, and stored in `self.cmdname`. The rest is stored
-    in `self.args`.
-
-    The MuxCommand parser breaks `self.args` into its constituents and stores them
-    in the following variables:
-        self.switches = optional list of /switches (without the /).
-        self.raw = This is the raw argument input, including switches.
-        self.args = This is re-defined to be everything *except* the switches.
-        self.lhs = Everything to the left of `=` (lhs:'left-hand side'). If
-                     no `=` is found, this is identical to `self.args`.
-        self.rhs: Everything to the right of `=` (rhs:'right-hand side').
-                    If no `=` is found, this is `None`.
-        self.lhslist - `self.lhs` split into a list by comma.
-        self.rhslist - list of `self.rhs` split into a list by comma.
-        self.arglist = list of space-separated args (including `=` if it exists).
-
-    All args and list members are stripped of excess whitespace around the
-    strings, but case is preserved.
-    """
-
-    def func(self):
-        """
-        This is the hook function that actually does all the work. It is called
-        by the `cmdhandler` right after `self.parser()` finishes, and so has access
-        to all the variables defined therein.
-        """
-        # this can be removed in your child class, it's just
-        # printing the ingoing variables as a demo.
-        super(MuxCommand, self).func()
