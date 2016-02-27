@@ -21,7 +21,13 @@ import android.os.Bundle;
 import android.support.v7.app.ActionBarActivity;
 import android.util.Log;
 import android.view.View;
+import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
+import android.widget.ListAdapter;
+import android.widget.ListView;
+import android.widget.SimpleAdapter;
+import android.widget.SimpleCursorAdapter;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -37,9 +43,12 @@ import org.apache.http.message.BasicNameValuePair;
 
 import java.net.URI;
 import java.text.DateFormat;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
+import java.util.Objects;
+import java.util.TreeSet;
 
 import in.rade.armud.armudclient.websocket.WebSocketClient;
 
@@ -91,6 +100,7 @@ public class MainActivity extends ActionBarActivity implements
     protected TextView mLatitudeTextView;
     protected TextView mLongitudeTextView;
     protected TextView mLocInfoTextView;
+    protected ListView mFocusListView;
 
     // Labels.
     protected String mLatitudeLabel;
@@ -98,8 +108,12 @@ public class MainActivity extends ActionBarActivity implements
     protected String mLastUpdateTimeLabel;
     protected String mLocInfoLabel;
 
+
     protected String mCurrentMonster;
-    protected String[] mCurrentCharacters;
+    protected TreeSet<String> mCurrentObjectSet;
+    protected TreeSet<String> mCurrentCharSet;
+    protected ArrayList<String> mFocusList;
+    protected ListAdapter mFocusAdapter;
     /**
      * Tracks the status of the location updates request. Value changes when the user presses the
      * Start Updates and Stop Updates buttons.
@@ -109,7 +123,9 @@ public class MainActivity extends ActionBarActivity implements
     protected Boolean mLoggedIn;
 
     protected static int MESSAGE_MAX_LENGTH = 50;
-    protected static String GET_CHAR_LIST = "charlist";
+    protected static int CHARACTER_T = 1;
+    protected static int OBJECT_T = 2;
+
 
     /**
      * Time when the location was updated represented as a String.
@@ -135,6 +151,26 @@ public class MainActivity extends ActionBarActivity implements
         mLastUpdateTimeTextView = (TextView) findViewById(R.id.last_update_time_text);
         mLocInfoTextView = (TextView) findViewById(R.id.locinfo_text);
 
+        //focus lists
+        mCurrentCharSet = new TreeSet<String>();
+        mFocusListView = (ListView) findViewById(R.id.focusListView);
+        mFocusList = new ArrayList<String>();
+        ArrayAdapter<String> adapter = new ArrayAdapter<String>(this,
+                android.R.layout.simple_list_item_1, android.R.id.text1,
+                mFocusList.toArray(new String[mFocusList.size()]));
+        mFocusListView.setAdapter(adapter);
+        mFocusListView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+
+                                                  @Override
+                                                  public void onItemClick(AdapterView<?> parent,
+                                                                          View view,
+                                                                          int position,
+                                                                          long id) {
+                                                      // Get clicked project.
+                                                      mCurrentMonster = mFocusList.get(position);
+                                                  }});
+
+
         // Set labels.
         mLatitudeLabel = getResources().getString(R.string.latitude_label);
         mLongitudeLabel = getResources().getString(R.string.longitude_label);
@@ -147,6 +183,10 @@ public class MainActivity extends ActionBarActivity implements
 
         mCurrentMonster = "";
 
+        // Add the project titles to display in a list for the listview adapter.
+
+        // Initialise a listview adapter with the project titles and use it
+        // in the listview to show the list of project.
 
         //count = 0;
         //Login to MUD
@@ -165,7 +205,7 @@ public class MainActivity extends ActionBarActivity implements
 
 
     public void attackButtonHandler(View view) {
-        if (mCurrentMonster != "") {
+        if (Objects.equals(mCurrentMonster, "")) {
             client.send("Attack " + mCurrentMonster);
         }
     }
@@ -334,15 +374,41 @@ public class MainActivity extends ActionBarActivity implements
         switch(splitMessage[0])
         {
             case "MSG":
-                if (mLocInfoLabel != splitMessage[1]) {
+                if (!Objects.equals(mLocInfoLabel,splitMessage[1])) {
                     mLocInfoLabel = splitMessage[1];
-                    client.send(GET_CHAR_LIST);
                 }
                 break;
-            case "CHARS":
-                mCurrentCharacters = Arrays.copyOfRange(splitMessage, 1, splitMessage.length - 1);
-                mCurrentMonster = mCurrentCharacters[1];
+            case "CHAR":
+                if (Objects.equals("-",splitMessage[1])) {
+                    removeFromFocusables(CHARACTER_T, splitMessage[2]);
+                    if (Objects.equals(splitMessage[2], mCurrentMonster)) {
+                        if (mCurrentCharSet.isEmpty()) {
+                            mCurrentMonster = "";
+                        } else {
+                            mCurrentMonster = mCurrentCharSet.first();
+                        }
+                    }
+                } else if (Objects.equals("+", splitMessage[1])) {
+                    addToFocusables(CHARACTER_T, splitMessage[2]);
+                }
                 break;
+        }
+    }
+
+
+    private void addToFocusables(int type, String objName) {
+        Log.d(WEBSOCKET_TAG, "adding new focusable object");
+        mFocusList.add(objName);
+        if (type == CHARACTER_T) {
+            mCurrentCharSet.add(objName);
+        }
+    }
+
+    private void removeFromFocusables(int type, String objName){
+        Log.d(WEBSOCKET_TAG, "removing focusable object");
+        if (!mFocusList.isEmpty()) {
+            mCurrentCharSet.remove(objName);
+            mFocusList.remove(objName);
         }
     }
 
