@@ -273,10 +273,8 @@ public class MainActivity extends ActionBarActivity implements
         @Override
         public void onMessage(String message) {
             Log.d(WEBSOCKET_TAG, String.format("Got string message! %s", message));
-            if (message.length() < MESSAGE_MAX_LENGTH) {
-                 message = message.substring(3, message.length());
+                message = message.substring(3, message.length());
                 parseMessage(message.split(","));
-            }
         }
 
         @Override
@@ -332,6 +330,7 @@ public class MainActivity extends ActionBarActivity implements
 
     private void parseMessage(String[] splitMessage)
     {
+        Log.d(WEBSOCKET_TAG, "parsing");
         switch(splitMessage[0])
         {
             case "MSG":
