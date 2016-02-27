@@ -34,7 +34,9 @@ class Character(DefaultCharacter):
 
     """
     def at_object_creation(self):
-        "Called only when first created"
+        """
+        Called only when first created
+        """
         self.db.level = 1 
         self.db.HP = 100
         self.db.XP = 0

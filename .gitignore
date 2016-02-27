@@ -9,6 +9,10 @@
 Android/*.apk
 Android/*.ap_
 
+# Ignore virtualenv, evennia
+.env
+.evennia
+
 # Files for the Dalvik VM
 Android/*.dex
 

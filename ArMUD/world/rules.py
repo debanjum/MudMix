@@ -68,3 +68,4 @@ def roll_challenge(character1, character2, skillname):
         SKILLS[skillname](character1, character2)
     else: 
         raise RunTimeError("Skillname %s not found." % skillname)
+
