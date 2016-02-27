@@ -38,6 +38,9 @@ import com.google.android.gms.common.api.GoogleApiClient.OnConnectionFailedListe
 import com.google.android.gms.location.LocationListener;
 import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationServices;
+import com.google.android.gms.wearable.DataMap;
+import com.google.android.gms.wearable.PutDataMapRequest;
+import com.google.android.gms.wearable.Wearable;
 
 import org.apache.http.message.BasicNameValuePair;
 
@@ -107,6 +110,12 @@ public class MainActivity extends ActionBarActivity implements
     protected String mLongitudeLabel;
     protected String mLastUpdateTimeLabel;
     protected String mLocInfoLabel;
+
+
+    // messages from armud server
+    protected ArrayList<String> mMessageHistory;
+
+    // communication with android wear
 
 
     protected String mCurrentMonster;
@@ -261,6 +270,7 @@ public class MainActivity extends ActionBarActivity implements
         mLastUpdateTimeTextView.setText(String.format("%s: %s", mLastUpdateTimeLabel,
                 mLastUpdateTime));
         mLocInfoTextView.setText(String.format("%s", mLocInfoLabel));
+
     }
 
 
@@ -350,7 +360,7 @@ public class MainActivity extends ActionBarActivity implements
                 e.printStackTrace();
             }
         }
-
+        //TODO login string generator
         final String loginstring = "connect test test";
         Log.d(WEBSOCKET_TAG, loginstring);
 
@@ -374,12 +384,19 @@ public class MainActivity extends ActionBarActivity implements
         switch(splitMessage[0])
         {
             case "MSG":
+                mMessageHistory.add(splitMessage[1]);
                 if (!Objects.equals(mLocInfoLabel,splitMessage[1])) {
-                    mLocInfoLabel = splitMessage[1];
+                    Toast.makeText(this, splitMessage[1], Toast.LENGTH_LONG);
                 }
                 break;
-            case "CHAR":
-                if (Objects.equals("-",splitMessage[1])) {
+            case "DATA":
+                Log.d(WEBSOCKET_TAG, "Sending data to watch");
+                final PutDataMapRequest putRequest = PutDataMapRequest.create("/ARMUD_DATA");
+                final DataMap map = putRequest.getDataMap();
+                map.putString("command", splitMessage[1]);
+                map.putString("obj", splitMessage[2]);
+
+                if (Objects.equals("char_remove", splitMessage[1])) {
                     removeFromFocusables(CHARACTER_T, splitMessage[2]);
                     if (Objects.equals(splitMessage[2], mCurrentMonster)) {
                         if (mCurrentCharSet.isEmpty()) {
@@ -388,10 +405,13 @@ public class MainActivity extends ActionBarActivity implements
                             mCurrentMonster = mCurrentCharSet.first();
                         }
                     }
-                } else if (Objects.equals("+", splitMessage[1])) {
+                } else if (Objects.equals("char_add", splitMessage[1])) {
                     addToFocusables(CHARACTER_T, splitMessage[2]);
                 }
+                Wearable.DataApi.putDataItem(mGoogleApiClient, putRequest.asPutDataRequest());
                 break;
+            default:
+               // Toast.makeText(this, splitMessage[1], Toast.LENGTH_LONG);
         }
     }
 
@@ -475,6 +495,7 @@ public class MainActivity extends ActionBarActivity implements
                 .addConnectionCallbacks(this)
                 .addOnConnectionFailedListener(this)
                 .addApi(LocationServices.API)
+                .addApi(Wearable.API)
                 .build();
         createLocationRequest();
     }
@@ -576,6 +597,8 @@ public class MainActivity extends ActionBarActivity implements
         Log.d("onLocationChanged", "talk with mud");
         talkwithMUD(mCurrentLocation);
         //client.send("location 72.012 23.231");
+        String[] splitMessage = {"DATA","LOC", mLastUpdateTime.toString()};
+        parseMessage(splitMessage);
         updateUI();
         Toast.makeText(this, getResources().getString(R.string.location_updated_message),
                 Toast.LENGTH_SHORT).show();
