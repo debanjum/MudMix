@@ -20,6 +20,15 @@ class Room(DefaultRoom):
     See examples/object.py for a list of
     properties and methods available on all Objects.
     """
+
+    def at_object_creation(self):
+        "Called at first creation of the object"
+        super(Room, self).at_object_creation()
+        self.db.roomtype_key = "Generic"     # Room Type Key
+        self.db.roomtype_value = "Generic"   # Room Type Value
+        self.db.location = ""                # Room Location
+
+
     def at_object_receive(self, obj, source_location):
         if utils.inherits_from(obj, Npc): # An NPC has entered
             pass
@@ -36,15 +45,15 @@ class Room(DefaultRoom):
                         tickerhandler.add(item,1)
 
                     if utils.inherits_from(item, Character) and item.dbref != obj.dbref:
-                        obj.msg("CHAR,+," + item.name + item.dbref)
-			item.msg("CHAR,+," + obj.name + obj.dbref)
+                        obj.msg("DATA,char_add," + item.name + item.dbref)
+			item.msg("DATA,char_add," + obj.name + obj.dbref)
 
 
     def at_object_leave(self, obj, target_location):
         if utils.inherits_from(obj, Character):
             for item in self.contents:
                 if utils.inherits_from(item, Character) and item.dbref != obj.dbref:
-                    item.msg("CHAR,-," + obj.name + obj.dbref)
+                    item.msg("DATA,char_remove," + obj.name + obj.dbref)
 
 
         if utils.inherits_from(obj, Npc): # An NPC has left

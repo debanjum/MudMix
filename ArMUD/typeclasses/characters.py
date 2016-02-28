@@ -49,7 +49,8 @@ class Character(DefaultCharacter):
         looker sees when looking at this object.
         """
         text = super(Character, self).return_appearance(looker)
-        cscore = "\n(level: %s)\n(health: %s)\n(xp: %s)\n(strength: %s)\n(combat score: %s)" % (self.db.level, self.db.HP, self.db.XP, self.db.STR, self.db.combat)
+        lookcontrolstring = "\n(level: %s)\n(health: %s)\n(xp: %s)\n(strength: %s)\n(combat score: %s)"
+        cscore = lookcontrolstring % (self.db.level, self.db.HP, self.db.XP, self.db.STR, self.db.combat)
         if "\n" in text:
             # text is multi-line, add score after first line
             first_line, rest = text.split("\n", 1)
