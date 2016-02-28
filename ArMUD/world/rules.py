@@ -1,3 +1,4 @@
+from evennia import create_object, search_object, logger
 from random import randint
 
 def roll_hit():
@@ -57,7 +58,7 @@ def skill_combat(*args):
         char1.msg(drawtext)
         char2.msg(drawtext)
 
-SKILLS = {"combat": skill_combat}
+SKILLS = {"kickbox": skill_combat}
 
 def roll_challenge(character1, character2, skillname):
     """
@@ -68,3 +69,29 @@ def roll_challenge(character1, character2, skillname):
         SKILLS[skillname](character1, character2)
     else: 
         raise RunTimeError("Skillname %s not found." % skillname)
+
+
+def create_room(room_name, character, roomtype_key="Generic", roomtype_value="Generic"):
+    """
+    Create room(if doesn't exist) based on location metadata, 
+    attach script to control room state and move player to the room
+    """
+    rooms = search_object(room_name, typeclass='typeclasses.rooms.Room')
+
+    if not rooms:                                                      # If room doesn't exists
+        room = create_object("typeclasses.rooms.Room", key=room_name)  # then create room
+        room.scripts.add("typeclasses.scripts.RoomState")              # and attach script to control room state
+        logger.log_info("Room %s Created" % room)
+    else:
+        room=rooms[0]
+
+    # set room type if changed or new room
+    if room.db.roomtype_key != roomtype_key or room.db.roomtype_value != roomtype_value:
+        room.db.roomtype_key = roomtype_key
+        room.db.roomtype_value = roomtype_value
+        logger.log_info("Room Type Updated to %s: %s" % (room.db.roomtype_key,room.db.roomtype_value))
+
+    # teleport character to room, if not already in room
+    if character.location!=room_name:
+        character.move_to(room, quiet=True)                            
+        logger.log_info("User entered %s" % room)

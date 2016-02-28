@@ -12,8 +12,9 @@ just overloads its hooks to have it perform its function.
 
 """
 
-from evennia import DefaultScript
-
+from evennia import DefaultScript, utils
+from evennia.utils.spawner import spawn
+import objects, random
 
 class Script(DefaultScript):
     """
@@ -89,3 +90,79 @@ class Script(DefaultScript):
 
     """
     pass
+
+
+
+class Weather(DefaultScript): 
+    "Displays weather info. Meant to be attached to a room."
+
+    def at_script_creation(self):
+        "Called once, during initial creation"
+        self.key = "weather_script"
+        self.desc = "Gives random weather messages."
+        self.interval = 60 * 5 # every 5 minutes
+        self.persistent = True
+
+    def at_repeat(self):
+        "called every self.interval seconds."        
+        rand = random.random()
+        if rand < 0.5:
+            weather = "A faint breeze is felt."
+        elif rand < 0.7:
+            weather = "Clouds sweep across the sky." 
+        else:
+            weather = "There is a light drizzle of rain."
+        # send this message to everyone inside the object this
+        # script is attached to (likely a room)
+        self.obj.msg_contents(weather)
+
+
+class RoomState(DefaultScript): 
+    "Displays weather info. Meant to be attached to a room."
+
+    def at_script_creation(self):
+        "Called once, during initial creation"
+        self.key = "roomstate_script"
+        self.desc = "main script for creating and maintaining room state."
+        self.interval = 5 * 1 # every 5 minutes
+        self.persistent = True
+        self.db.available_veggies = ["orange", "tomato", "potato"]
+
+    def at_start(self):
+        print self.obj.db.roomtype_value,self.obj.db.roomtype_key
+        if self.obj.db.roomtype_value == 'university':
+            pass
+        if self.obj.db.roomtype_key == 'leisure' or self.obj.db.roomtype_key == 'building':
+            prototype = random.choice(self.db.available_veggies)
+            # use the spawner to create a new Vegetable from the
+            # spawner dictionary
+            veggie = spawn(objects.VEGETABLE_PROTOTYPES[prototype], prototype_parents=objects.VEGETABLE_PROTOTYPES)[0]
+            veggie.location = self.obj
+            print veggie
+
+    def at_repeat(self):
+        "called every self.interval seconds."        
+        
+        if self.obj.db.roomtype_key == 'leisure':
+            "weather updates if outdoors"
+            rand = random.random()
+            if rand < 0.5:
+                weather = "A faint breeze is felt."
+            elif rand < 0.7:
+                weather = "Clouds sweep across the sky." 
+            else:
+                weather = "There is a light drizzle of rain."
+            # send this message to everyone inside the object this
+            # script is attached to (likely a room)
+            self.obj.msg_contents(weather)
+
+        veggies_in_room = [obj for obj in self.obj.contents_get() if utils.inherits_from(obj, objects.Vegetable)]
+
+        if self.obj.db.roomtype_key == 'leisure' and not veggies_in_room:
+            "vegetables spawned if less than threshold in farms"
+            prototype = random.choice(self.db.available_veggies)
+            # use the spawner to create a new Vegetable from the
+            # spawner dictionary
+            veggie = spawn(objects.VEGETABLE_PROTOTYPES[prototype], prototype_parents=objects.VEGETABLE_PROTOTYPES)[0]
+            veggie.location = self.obj
+            print prototype

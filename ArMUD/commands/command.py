@@ -23,7 +23,7 @@ class Location(BaseCommand):
     """
 
     key = "location"
-    aliases = []
+    aliases = ["loc"]
     locks = "cmd:all()"
     help_category = "General"
     loc = []
@@ -46,33 +46,48 @@ class Location(BaseCommand):
 
             # Extract Location Metadata 
             if 'elements' in response:
-		loc_tag = 'LOC'	
+		TAG = 'DATA,LOC'	
 		room_name = response['elements'][0]['tags']['name']
                 if 'leisure' in response['elements'][0]['tags']:
-                    self.caller.msg(loc_tag + room_name + "," + response['elements'][0]['tags']['leisure'])
+                    self.caller.msg(TAG + ","  + room_name + "," + response['elements'][0]['tags']['leisure'])
+                    rules.create_room(room_name, self.caller, 'leisure', response['elements'][0]['tags']['leisure'])
+
                 elif 'amenity' in response['elements'][0]['tags']:
-                    self.caller.msg(loc_tag + room_name + "," + response['elements'][0]['tags']['amenity'])
+                    self.caller.msg(TAG  + "," + room_name + "," + response['elements'][0]['tags']['amenity'])
+                    rules.create_room(room_name, self.caller, 'amenity', response['elements'][0]['tags']['amenity'])
+
                 elif 'building' in response['elements'][0]['tags']:
-                    self.caller.msg(loc_tag + room_name + "," + response['elements'][0]['tags']['building'])
+                    self.caller.msg(TAG  + "," + room_name + "," + response['elements'][0]['tags']['building'])
+                    rules.create_room(room_name, self.caller, 'building', response['elements'][0]['tags']['building'])
+
                 else:
-                    self.caller.msg(loc_tag + room_name)
+                    self.caller.msg(TAG  + "," + room_name)
+                    rules.create_room(room_name, self.caller)
+
+                self.caller.msg("You are now in " + room_name)
+
+               #TODO: change room if different from current
+               #if self.caller.current_room != room_name:
+               #    self.caller
+
             # If No Relevant Metadata 
             else:
                 self.caller.msg("You are in unchartered territory")
 
 
+
 class CmdAttack(BaseCommand):
     """
-    attack an opponent
+    attack an opponent with bare hands, legs
 
     Usage:
-      attack <target>
+      punch/kick/box <target>
 
     This will attack a target in the same room, dealing 
     damage with your bare hands. 
     """
-    key = "attack"
-    aliases = ["hit", "kill"]
+    key = "punch"
+    aliases = ["kick", "box"]
     locks = "cmd:all()"
     help_category = "General"
     loc = []
@@ -88,4 +103,4 @@ class CmdAttack(BaseCommand):
         character1 = self.caller
         character2 = self.caller.search(self.args)
 
-        rules.roll_challenge(character1, character2, "combat")
+        rules.roll_challenge(character1, character2, "kickbox")
