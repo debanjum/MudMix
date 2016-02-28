@@ -16,8 +16,13 @@
 
 package in.rade.armud.armudclient;
 
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.location.Location;
 import android.os.Bundle;
+import android.support.v4.content.LocalBroadcastManager;
 import android.support.v7.app.ActionBarActivity;
 import android.util.Log;
 import android.view.View;
@@ -26,8 +31,6 @@ import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.ListAdapter;
 import android.widget.ListView;
-import android.widget.SimpleAdapter;
-import android.widget.SimpleCursorAdapter;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -38,8 +41,10 @@ import com.google.android.gms.common.api.GoogleApiClient.OnConnectionFailedListe
 import com.google.android.gms.location.LocationListener;
 import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationServices;
+import com.google.android.gms.wearable.DataApi;
 import com.google.android.gms.wearable.DataMap;
 import com.google.android.gms.wearable.PutDataMapRequest;
+import com.google.android.gms.wearable.PutDataRequest;
 import com.google.android.gms.wearable.Wearable;
 
 import org.apache.http.message.BasicNameValuePair;
@@ -53,6 +58,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.TreeSet;
 
+import in.rade.armud.armudclient.data.PhoneDataLayerListenerService;
 import in.rade.armud.armudclient.websocket.WebSocketClient;
 
 
@@ -210,8 +216,24 @@ public class MainActivity extends ActionBarActivity implements
         // Kick off the process of building a GoogleApiClient and requesting the LocationServices
         // API.
         buildGoogleApiClient();
+
+        //getting gesture data from watchlistener service
+        LocalBroadcastManager.getInstance(this).registerReceiver(mMsgFromWearReceiver,
+                new IntentFilter("data_changed"));
+
+        startService(new Intent(this, PhoneDataLayerListenerService.class));
     }
 
+    private BroadcastReceiver mMsgFromWearReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            // Get extra data included in the Intent
+            String command = intent.getStringExtra("command");
+            String obj = intent.getStringExtra("obj");
+            Log.d("watch command received", command + " " + obj);
+            client.send(command + " " + obj);
+        }
+    };
 
     public void attackButtonHandler(View view) {
         if (Objects.equals(mCurrentMonster, "")) {
@@ -305,7 +327,7 @@ public class MainActivity extends ActionBarActivity implements
     @Override
     protected void onStop() {
         mGoogleApiClient.disconnect();
-        
+        LocalBroadcastManager.getInstance(this).unregisterReceiver(mMsgFromWearReceiver);
         super.onStop();
     }
 
@@ -323,8 +345,8 @@ public class MainActivity extends ActionBarActivity implements
         @Override
         public void onMessage(String message) {
             Log.d(WEBSOCKET_TAG, String.format("Got string message! %s", message));
-                message = message.substring(3, message.length());
-                parseMessage(message.split(","));
+            message = message.substring(3, message.length());
+            parseMessage(message.split(","));
         }
 
         @Override
@@ -336,6 +358,16 @@ public class MainActivity extends ActionBarActivity implements
         @Override
         public void onDisconnect(int code, String reason) {
             Log.d(WEBSOCKET_TAG, String.format("Disconnected! Code: %d Reason: %s", code, reason));
+            mConnected = false;
+            while (!mConnected) {
+                try {
+                    Log.d(WEBSOCKET_TAG, "trying to connect to server");
+                    Thread.sleep(1000);
+                    client.connect();
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
         }
 
         @Override
@@ -355,7 +387,9 @@ public class MainActivity extends ActionBarActivity implements
 
         while (!mConnected) {
             try {
+                Log.d(WEBSOCKET_TAG, "trying to connect to server");
                 Thread.sleep(1000);
+                client.connect();
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
@@ -372,7 +406,9 @@ public class MainActivity extends ActionBarActivity implements
      */
     public void talkwithMUD(final Location location)
     {
-        if(mConnected) {
+        if(null == location) {
+            Toast.makeText(this, "Make sure location is turned on!", Toast.LENGTH_LONG);
+        } else if(mConnected) {
             String querystring = "location " + location.getLatitude() + " " + location.getLongitude() + " " + location.getAccuracy();
             client.send(querystring);
         }
@@ -384,18 +420,26 @@ public class MainActivity extends ActionBarActivity implements
         switch(splitMessage[0])
         {
             case "MSG":
+                Log.d(WEBSOCKET_TAG, "received");
                 mMessageHistory.add(splitMessage[1]);
-                if (!Objects.equals(mLocInfoLabel,splitMessage[1])) {
-                    Toast.makeText(this, splitMessage[1], Toast.LENGTH_LONG);
-                }
+                Toast.makeText(this, splitMessage[1], Toast.LENGTH_LONG);
                 break;
             case "DATA":
                 Log.d(WEBSOCKET_TAG, "Sending data to watch");
+                DataMap dataMap = new DataMap();
+                dataMap.putString("command", splitMessage[1]);
+                dataMap.putString("obj", splitMessage[2]);
+                new SendToDataLayerThread(Globals.ARMUD_DATA_PATH, dataMap).start();
+
+                /*
                 final PutDataMapRequest putRequest = PutDataMapRequest.create("/ARMUD_DATA");
                 final DataMap map = putRequest.getDataMap();
                 map.putString("command", splitMessage[1]);
                 map.putString("obj", splitMessage[2]);
-
+                putRequest.setUrgent();
+                Wearable.DataApi.putDataItem(mGoogleApiClient, putRequest.asPutDataRequest());
+                */
+                /* //THIS IS FOR PHONE DATA STRUCTURES
                 if (Objects.equals("char_remove", splitMessage[1])) {
                     removeFromFocusables(CHARACTER_T, splitMessage[2]);
                     if (Objects.equals(splitMessage[2], mCurrentMonster)) {
@@ -408,10 +452,10 @@ public class MainActivity extends ActionBarActivity implements
                 } else if (Objects.equals("char_add", splitMessage[1])) {
                     addToFocusables(CHARACTER_T, splitMessage[2]);
                 }
-                Wearable.DataApi.putDataItem(mGoogleApiClient, putRequest.asPutDataRequest());
+                */
                 break;
             default:
-               // Toast.makeText(this, splitMessage[1], Toast.LENGTH_LONG);
+               mLocInfoLabel = splitMessage[0];
         }
     }
 
@@ -597,8 +641,6 @@ public class MainActivity extends ActionBarActivity implements
         Log.d("onLocationChanged", "talk with mud");
         talkwithMUD(mCurrentLocation);
         //client.send("location 72.012 23.231");
-        String[] splitMessage = {"DATA","LOC", mLastUpdateTime.toString()};
-        parseMessage(splitMessage);
         updateUI();
         Toast.makeText(this, getResources().getString(R.string.location_updated_message),
                 Toast.LENGTH_SHORT).show();
@@ -628,5 +670,32 @@ public class MainActivity extends ActionBarActivity implements
         savedInstanceState.putParcelable(LOCATION_KEY, mCurrentLocation);
         savedInstanceState.putString(LAST_UPDATED_TIME_STRING_KEY, mLastUpdateTime);
         super.onSaveInstanceState(savedInstanceState);
+    }
+
+    class SendToDataLayerThread extends Thread {
+        String path;
+        DataMap dataMap;
+
+        // Constructor for sending data objects to the data layer
+        SendToDataLayerThread(String p, DataMap data) {
+            path = p;
+            dataMap = data;
+        }
+
+        public void run() {
+            // Construct a DataRequest and send over the data layer
+            PutDataMapRequest putDMR = PutDataMapRequest.create(path);
+            putDMR.getDataMap().putAll(dataMap);
+            PutDataRequest request = putDMR.asPutDataRequest();
+            request.setUrgent();
+            DataApi.DataItemResult result = Wearable.DataApi.putDataItem(mGoogleApiClient, request).await();
+            if (result.getStatus().isSuccess()) {
+                Log.v("myTag", "DataMap: " + dataMap + " sent successfully to data layer ");
+            }
+            else {
+                // Log an error
+                Log.v("myTag", "ERROR: failed to send DataMap to data layer");
+            }
+        }
     }
 }
