@@ -15,8 +15,10 @@ import android.widget.TextView;
 
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.wearable.DataApi;
 import com.google.android.gms.wearable.DataMap;
 import com.google.android.gms.wearable.PutDataMapRequest;
+import com.google.android.gms.wearable.PutDataRequest;
 import com.google.android.gms.wearable.Wearable;
 
 import java.text.SimpleDateFormat;
@@ -58,16 +60,12 @@ WearableListView.OnCentralPositionChangedListener {
         setContentView(R.layout.activity_armud_wear);
         setAmbientEnabled();
 
-
-        mTitleView = (TextView) findViewById(R.id.titleText);
-
-        mContainerView= (WatchViewStub) findViewById(R.id.watch_view_stub);
-
-
+        mContainerView = (WatchViewStub) findViewById(R.id.watch_view_stub);
         mContainerView.setOnLayoutInflatedListener(new WatchViewStub.OnLayoutInflatedListener() {
             @Override
             public void onLayoutInflated(WatchViewStub stub) {
                 mFocusListView = (WearableListView) stub.findViewById(R.id.focusListView);
+                mTitleView = (TextView) stub.findViewById(R.id.titleText);
                 loadAdapter();
             }
         });
@@ -106,11 +104,13 @@ WearableListView.OnCentralPositionChangedListener {
             switch (command) {
                 case "char_add":
                     Log.d("command receiver", "adding character");
-                    mCharArray.add(obj);
-                    if (mCurrentFocusObject.equals("")) {
-                        mCurrentFocusObject = obj;
-                        if (mCurrentFocusContext != Globals.FOCUS_CONTEXT_CHARACTER) {
-                            switchFocusContext(Globals.FOCUS_CONTEXT_CHARACTER);
+                    if (!mCharArray.contains(obj)) {
+                        mCharArray.add(obj);
+                        if (mCurrentFocusObject.equals("")) {
+                            mCurrentFocusObject = obj;
+                            if (mCurrentFocusContext != Globals.FOCUS_CONTEXT_CHARACTER) {
+                                switchFocusContext(Globals.FOCUS_CONTEXT_CHARACTER);
+                            }
                         }
                     }
                     break;
@@ -119,22 +119,23 @@ WearableListView.OnCentralPositionChangedListener {
                         mCharArray.remove(obj);
                     break;
                 case "obj_add":
-                    mObjArray.add(obj);
+                    if (!mObjArray.contains(obj))
+                        mObjArray.add(obj);
                     break;
                 case "obj_remove":
                     if (mObjArray.contains(obj))
                         mObjArray.remove(obj);
                     break;
                 case "inv_add":
-                    mInvArray.add(obj);
+                    if (!mInvArray.contains(obj))
+                        mInvArray.add(obj);
                     break;
                 case "inv_remove":
                     if (mInvArray.contains(obj))
                         mInvArray.remove(obj);
                     break;
                 case "LOC":
-                    //Log.d("mtitleview", mTitleView.toString());
-                    //mTitleView.setText(obj);
+                    mTitleView.setText(obj);
             }
             updateFocusArray();
         }
@@ -178,12 +179,14 @@ WearableListView.OnCentralPositionChangedListener {
                     break;
             }
             String obj = mCurrentFocusObject;
-            Log.d("Send command to phone", command + "  " + obj);
-            final PutDataMapRequest putRequest = PutDataMapRequest.create("/COMMAND");
-            final DataMap map = putRequest.getDataMap();
-            map.putString("command", command);
-            map.putString("obj", obj);
-            Wearable.DataApi.putDataItem(mGoogleApiClient, putRequest.asPutDataRequest());
+            if (obj.equals("") && !mCharArray.isEmpty()) {
+                obj = mCharArray.get(0);
+            }
+            Log.d("Send command to phone", command + " " + obj);
+            DataMap dataMap = new DataMap();
+            dataMap.putString("command", command);
+            dataMap.putString("obj", obj);
+            new SendToDataLayerThread(Globals.COMMAND_PATH, dataMap).start();
         }
     };
 
@@ -191,7 +194,7 @@ WearableListView.OnCentralPositionChangedListener {
     private void updateFocusArray() {
         mFocusArray.clear();
         mFocusArray.addAll(mCharArray);
-        mFocusArray.addAll(mObjArray);
+        loadAdapter();
     }
 
 
@@ -272,6 +275,7 @@ WearableListView.OnCentralPositionChangedListener {
     }
 
     private void loadAdapter() {
+        Log.d("updating listview", mCurrentFocusObject);
         ObjectAdapter mAdapter = new ObjectAdapter(this, mFocusArray);
         mFocusListView.setAdapter(mAdapter);
     }
@@ -347,6 +351,32 @@ WearableListView.OnCentralPositionChangedListener {
         @Override
         public int getItemCount() {
             return mDataset.size();
+        }
+    }
+    class SendToDataLayerThread extends Thread {
+        String path;
+        DataMap dataMap;
+
+        // Constructor for sending data objects to the data layer
+        SendToDataLayerThread(String p, DataMap data) {
+            path = p;
+            dataMap = data;
+        }
+
+        public void run() {
+            // Construct a DataRequest and send over the data layer
+            PutDataMapRequest putDMR = PutDataMapRequest.create(path);
+            putDMR.getDataMap().putAll(dataMap);
+            PutDataRequest request = putDMR.asPutDataRequest();
+            request.setUrgent();
+            DataApi.DataItemResult result = Wearable.DataApi.putDataItem(mGoogleApiClient, request).await();
+            if (result.getStatus().isSuccess()) {
+                Log.v("myTag", "DataMap: " + dataMap + " sent successfully to data layer ");
+            }
+            else {
+                // Log an error
+                Log.v("myTag", "ERROR: failed to send DataMap to data layer");
+            }
         }
     }
 }
