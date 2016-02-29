@@ -5,15 +5,10 @@
 
     <TextView
         android:id="@+id/text"
-        android:gravity="center_vertical"
-        android:layout_height="52dp"
-        android:layout_marginLeft="72dp"
-        android:layout_marginRight="16dp"
         android:layout_width="wrap_content"
-        android:textColor="@color/white"
-        android:scaleX="0.8"
-        android:scaleY="0.8"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="8dp"
+        android:gravity="center"
         android:alpha="0.6"
-        android:textSize="18sp"
-        />
+        android:textSize="12sp" />
 </merge>

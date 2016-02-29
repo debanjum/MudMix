@@ -34,4 +34,8 @@ public final class ObjectView extends FrameLayout implements WearableListView.On
         text.animate().scaleX(0.8f).scaleY(0.8f).alpha(0.6f);
 
     }
+
+    public TextView getText() {
+        return text;
+    }
 }

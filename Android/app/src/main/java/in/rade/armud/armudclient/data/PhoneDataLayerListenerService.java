@@ -16,7 +16,7 @@ import java.util.List;
 
 public class PhoneDataLayerListenerService extends WearableListenerService {
 
-    private static final String TAG = "DataLayer";
+    private static final String TAG = "PhoneDataLayer";
 
     @Override
     public void onCreate(){
@@ -27,9 +27,7 @@ public class PhoneDataLayerListenerService extends WearableListenerService {
     @Override
     public void onDataChanged(DataEventBuffer dataEvents) {
         super.onDataChanged(dataEvents);
-        if (Log.isLoggable(TAG, Log.DEBUG)) {
-            Log.d(TAG, "onDataChanged: " + dataEvents);
-        }
+        Log.d(TAG, "onDataChanged: " + dataEvents);
 
         final List<DataEvent> events = FreezableUtils.freezeIterable(dataEvents);
         for(DataEvent event : events) {

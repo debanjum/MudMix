@@ -141,6 +141,8 @@ public class MainActivity extends ActionBarActivity implements
     protected static int CHARACTER_T = 1;
     protected static int OBJECT_T = 2;
 
+    protected static final float mAccuracyThresh = 15; // only update if less than 15 meter accuracy
+
 
     /**
      * Time when the location was updated represented as a String.
@@ -417,45 +419,16 @@ public class MainActivity extends ActionBarActivity implements
     private void parseMessage(String[] splitMessage)
     {
         Log.d(WEBSOCKET_TAG, "parsing");
-        switch(splitMessage[0])
-        {
-            case "MSG":
-                Log.d(WEBSOCKET_TAG, "received");
-                mMessageHistory.add(splitMessage[1]);
-                Toast.makeText(this, splitMessage[1], Toast.LENGTH_LONG);
-                break;
-            case "DATA":
-                Log.d(WEBSOCKET_TAG, "Sending data to watch");
-                DataMap dataMap = new DataMap();
-                dataMap.putString("command", splitMessage[1]);
-                dataMap.putString("obj", splitMessage[2]);
-                new SendToDataLayerThread(Globals.ARMUD_DATA_PATH, dataMap).start();
-
-                /*
-                final PutDataMapRequest putRequest = PutDataMapRequest.create("/ARMUD_DATA");
-                final DataMap map = putRequest.getDataMap();
-                map.putString("command", splitMessage[1]);
-                map.putString("obj", splitMessage[2]);
-                putRequest.setUrgent();
-                Wearable.DataApi.putDataItem(mGoogleApiClient, putRequest.asPutDataRequest());
-                */
-                /* //THIS IS FOR PHONE DATA STRUCTURES
-                if (Objects.equals("char_remove", splitMessage[1])) {
-                    removeFromFocusables(CHARACTER_T, splitMessage[2]);
-                    if (Objects.equals(splitMessage[2], mCurrentMonster)) {
-                        if (mCurrentCharSet.isEmpty()) {
-                            mCurrentMonster = "";
-                        } else {
-                            mCurrentMonster = mCurrentCharSet.first();
-                        }
-                    }
-                } else if (Objects.equals("char_add", splitMessage[1])) {
-                    addToFocusables(CHARACTER_T, splitMessage[2]);
-                }
-                */
-                break;
-            default:
-               mLocInfoLabel = splitMessage[0];
+        if (splitMessage[0].equals("DATA")) {
+            //TODO CHANGE TO MESSAGE API
+            Log.d(WEBSOCKET_TAG, "Sending data to watch");
+            DataMap dataMap = new DataMap();
+            dataMap.putString("command", splitMessage[1]);
+            dataMap.putString("obj", splitMessage[2]);
+            new SendToDataLayerThread(Globals.ARMUD_DATA_PATH, dataMap).start();
+        } else{
+            //TODO TEXT TO SPEECH
+            mLocInfoLabel = splitMessage[0];
         }
     }
 
@@ -637,13 +610,15 @@ public class MainActivity extends ActionBarActivity implements
     @Override
     public void onLocationChanged(Location location) {
         mCurrentLocation = location;
-        mLastUpdateTime = DateFormat.getTimeInstance().format(new Date());
-        Log.d("onLocationChanged", "talk with mud");
-        talkwithMUD(mCurrentLocation);
-        //client.send("location 72.012 23.231");
-        updateUI();
-        Toast.makeText(this, getResources().getString(R.string.location_updated_message),
-                Toast.LENGTH_SHORT).show();
+        if (mCurrentLocation.getAccuracy() < mAccuracyThresh) {
+            mLastUpdateTime = DateFormat.getTimeInstance().format(new Date());
+            Log.d("onLocationChanged", "talk with mud");
+            talkwithMUD(mCurrentLocation);
+            //client.send("location 72.012 23.231");
+            updateUI();
+            Toast.makeText(this, getResources().getString(R.string.location_updated_message),
+                    Toast.LENGTH_SHORT).show();
+        }
     }
 
     @Override
