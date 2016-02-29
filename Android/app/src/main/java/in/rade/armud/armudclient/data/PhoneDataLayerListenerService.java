@@ -1,29 +1,32 @@
 package in.rade.armud.armudclient.data;
 
 import android.content.Intent;
-import android.net.Uri;
 import android.support.v4.content.LocalBroadcastManager;
 import android.util.Log;
 
-import com.google.android.gms.common.data.FreezableUtils;
-import com.google.android.gms.wearable.DataEvent;
-import com.google.android.gms.wearable.DataEventBuffer;
-import com.google.android.gms.wearable.DataMap;
-import com.google.android.gms.wearable.DataMapItem;
+import com.google.android.gms.wearable.MessageEvent;
 import com.google.android.gms.wearable.WearableListenerService;
 
-import java.util.List;
+import in.rade.armud.armudclient.Globals;
 
 public class PhoneDataLayerListenerService extends WearableListenerService {
 
-    private static final String TAG = "PhoneDataLayer";
+    private static final String TAG = "PhoneMessageListener";
 
     @Override
-    public void onCreate(){
-        super.onCreate();
-        Log.i(TAG, "created");
+    public void onMessageReceived(MessageEvent messageEvent) {
+        Log.i(TAG, messageEvent.toString());
+        if(messageEvent.getPath().equals(Globals.COMMAND_PATH)) {
+            final String message = new String(messageEvent.getData());
+            Intent intent = new Intent(Globals.COMMAND_PATH);
+            intent.putExtra("message", message);
+            LocalBroadcastManager.getInstance(this).sendBroadcast(intent);
+        } else {
+            super.onMessageReceived(messageEvent);
+        }
     }
 
+    /*
     @Override
     public void onDataChanged(DataEventBuffer dataEvents) {
         super.onDataChanged(dataEvents);
@@ -39,11 +42,12 @@ public class PhoneDataLayerListenerService extends WearableListenerService {
                 // read your values from map:
                 String command = map.get("command");
                 String obj = map.get("obj");
-                Intent intent = new Intent("data_changed");
-                intent.putExtra("obj", obj);
+                Intent intent = new Intent(Globals.COMMAND_PATH);
                 intent.putExtra("command", command);
+                intent.putExtra("obj", obj);
                 LocalBroadcastManager.getInstance(this).sendBroadcast(intent);
             }
         }
     }
+    */
 }

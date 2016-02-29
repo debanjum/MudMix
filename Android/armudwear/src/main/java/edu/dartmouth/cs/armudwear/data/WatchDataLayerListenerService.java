@@ -1,18 +1,11 @@
 package edu.dartmouth.cs.armudwear.data;
 
 import android.content.Intent;
-import android.net.Uri;
 import android.support.v4.content.LocalBroadcastManager;
 import android.util.Log;
 
-import com.google.android.gms.common.data.FreezableUtils;
-import com.google.android.gms.wearable.DataEvent;
-import com.google.android.gms.wearable.DataEventBuffer;
-import com.google.android.gms.wearable.DataMap;
-import com.google.android.gms.wearable.DataMapItem;
+import com.google.android.gms.wearable.MessageEvent;
 import com.google.android.gms.wearable.WearableListenerService;
-
-import java.util.List;
 
 import edu.dartmouth.cs.armudwear.Globals;
 
@@ -20,6 +13,22 @@ public class WatchDataLayerListenerService extends WearableListenerService {
 
     private static final String TAG = "DataLayer";
 
+    @Override
+    public void onMessageReceived(MessageEvent messageEvent) {
+        Log.i(TAG, messageEvent.toString());
+        if(messageEvent.getPath().equals(Globals.ARMUD_DATA_PATH)) {
+            final String message = new String(messageEvent.getData());
+            String[] splitMessage = message.split(",");
+            Intent intent = new Intent(Globals.ARMUD_DATA_PATH);
+            intent.putExtra("command", splitMessage[0]);
+            intent.putExtra("obj", splitMessage[1]);
+            LocalBroadcastManager.getInstance(this).sendBroadcast(intent);
+        } else {
+            super.onMessageReceived(messageEvent);
+        }
+    }
+
+    /*
     @Override
     public void onDataChanged(DataEventBuffer dataEvents) {
         super.onDataChanged(dataEvents);
@@ -42,4 +51,5 @@ public class WatchDataLayerListenerService extends WearableListenerService {
             }
         }
     }
+    */
 }

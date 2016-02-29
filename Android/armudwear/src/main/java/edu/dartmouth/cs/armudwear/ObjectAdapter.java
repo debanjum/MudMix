@@ -15,8 +15,8 @@ public class ObjectAdapter extends WearableListView.Adapter {
     private Context mContext;
 
     public ObjectAdapter(Context context, ArrayList<String> items) {
-        mContext = context;
-        mDataset = items;
+        this.mContext = context;
+        this.mDataset = items;
     }
 
     @Override

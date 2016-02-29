@@ -5,20 +5,19 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.Bundle;
+import android.os.Vibrator;
 import android.support.v4.content.LocalBroadcastManager;
 import android.support.wearable.activity.WearableActivity;
 import android.support.wearable.view.WatchViewStub;
 import android.support.wearable.view.WearableListView;
 import android.util.Log;
-import android.view.ViewGroup;
 import android.widget.TextView;
 
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
-import com.google.android.gms.wearable.DataApi;
-import com.google.android.gms.wearable.DataMap;
-import com.google.android.gms.wearable.PutDataMapRequest;
-import com.google.android.gms.wearable.PutDataRequest;
+import com.google.android.gms.wearable.MessageApi;
+import com.google.android.gms.wearable.Node;
+import com.google.android.gms.wearable.NodeApi;
 import com.google.android.gms.wearable.Wearable;
 
 import java.text.SimpleDateFormat;
@@ -51,6 +50,8 @@ WearableListView.OnCentralPositionChangedListener {
 
     protected GoogleApiClient mGoogleApiClient;
 
+    private Vibrator vibrator;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -80,13 +81,15 @@ WearableListView.OnCentralPositionChangedListener {
         buildGoogleApiClient();
 
         LocalBroadcastManager.getInstance(this).registerReceiver(mMsgToWearReceiver,
-                new IntentFilter("data_changed"));
+                new IntentFilter(Globals.ARMUD_DATA_PATH));
 
         LocalBroadcastManager.getInstance(this).registerReceiver(mCommandReceiver,
                 new IntentFilter(Globals.COMMAND_UPDATED));
 
         startService(new Intent(this, WatchDataLayerListenerService.class));
         Log.d("onCreate", "complete");
+
+        vibrator = (Vibrator) getSystemService(VIBRATOR_SERVICE);
     }
 
     // mMsgToWearReceiver will be called whenever an Intent
@@ -157,6 +160,9 @@ WearableListView.OnCentralPositionChangedListener {
     private BroadcastReceiver mCommandReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
+            //vibrate watch user feedback
+            vibrator.vibrate(100);
+
             // Get extra data included in the Intent
             int commandNumber = intent.getIntExtra("commandNumber", Globals.NO_COMMAND_DETECTED);
             String command = "";
@@ -180,11 +186,13 @@ WearableListView.OnCentralPositionChangedListener {
             if (obj.equals("") && !mCharArray.isEmpty()) {
                 obj = mCharArray.get(0);
             }
-            Log.d("Send command to phone", command + " " + obj);
-            DataMap dataMap = new DataMap();
-            dataMap.putString("command", command);
-            dataMap.putString("obj", obj);
-            new SendToDataLayerThread(Globals.COMMAND_PATH, dataMap).start();
+
+            if (mGoogleApiClient.isConnected()) {
+                Log.d("Send command to phone", command + " " + obj);
+                new SendMessageToPhoneThread(Globals.COMMAND_PATH, command + " " + obj).start();
+            } else {
+                Log.d("Send command failure", "not connected to phone");
+            }
         }
     };
 
@@ -281,29 +289,25 @@ WearableListView.OnCentralPositionChangedListener {
         mFocusListView.setAdapter(mAdapter);
     }
 
-    class SendToDataLayerThread extends Thread {
+    class SendMessageToPhoneThread extends Thread {
         String path;
-        DataMap dataMap;
+        String message;
 
         // Constructor for sending data objects to the data layer
-        SendToDataLayerThread(String p, DataMap data) {
+        SendMessageToPhoneThread(String p, String m) {
             path = p;
-            dataMap = data;
+            message = m;
         }
 
         public void run() {
-            // Construct a DataRequest and send over the data layer
-            PutDataMapRequest putDMR = PutDataMapRequest.create(path);
-            putDMR.getDataMap().putAll(dataMap);
-            PutDataRequest request = putDMR.asPutDataRequest();
-            request.setUrgent();
-            DataApi.DataItemResult result = Wearable.DataApi.putDataItem(mGoogleApiClient, request).await();
-            if (result.getStatus().isSuccess()) {
-                Log.v("myTag", "DataMap: " + dataMap + " sent successfully to data layer ");
-            }
-            else {
-                // Log an error
-                Log.v("myTag", "ERROR: failed to send DataMap to data layer");
+            NodeApi.GetConnectedNodesResult nodes = Wearable.NodeApi.getConnectedNodes(mGoogleApiClient).await();
+            for(Node node : nodes.getNodes()) {
+                MessageApi.SendMessageResult result = Wearable.MessageApi.sendMessage(mGoogleApiClient, node.getId(), path, message.getBytes()).await();
+                if(!result.getStatus().isSuccess()){
+                    Log.e("test", "error");
+                } else {
+                    Log.i("test", "success!! sent to: " + node.getDisplayName());
+                }
             }
         }
     }
