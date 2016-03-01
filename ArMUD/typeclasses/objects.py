@@ -11,9 +11,7 @@ inheritance.
 
 """
 from future.utils import listvalues
-
 import random
-
 from evennia import DefaultObject, DefaultExit, Command, CmdSet, default_cmds
 from evennia import utils
 from evennia.utils import search
@@ -45,37 +43,6 @@ class TutorialObject(DefaultObject):
 # Food is required to heal or gain strenth in this world.
 #------------------------------------------------------------
 
-class VegetableEat(Command):
-    """
-    Eat the vegetable. Commands:
-      eat <vegetable>
-    """
-
-    # this is an example of implementing many commands as a single
-    # command class, using the given command alias to separate between them.
-
-    key = "eat"
-    aliases = ["consume"]
-    locks = "cmd:all()"
-    help_category = "TutorialWorld"
-
-    def func(self):
-        "Implements eating"
-
-        # parry mode
-        string = "You eat your veggies"
-        self.caller.msg(string)
-        self.caller.db.HP += self.obj.db.heal
-        self.caller.db.STR += self.obj.db.strength
-        self.obj.delete()
-
-class CmdSetVegetable(CmdSet):
-    "Holds the attack command."
-    def at_cmdset_creation(self):
-        "called at first object creation."
-        self.add(VegetableEat())
-
-
 class Vegetable(TutorialObject):
     """
     This defines a vegetable or fruit.
@@ -88,7 +55,6 @@ class Vegetable(TutorialObject):
         super(Vegetable, self).at_object_creation()
         self.db.heal = 1.0       # increases HP
         self.db.strength = 1.0   # increases STR
-        self.cmdset.add_default(CmdSetVegetable, permanent=True)
 
     def reset(self):
         """
@@ -175,9 +141,8 @@ class WeaponAttack(Command):
     # this is an example of implementing many commands as a single
     # command class, using the given command alias to separate between them.
 
-    key = "attack"
-    aliases = ["hit","kill", "fight", "thrust", "pierce", "stab",
-               "slash", "chop", "parry", "defend"]
+    key = "slash"
+    aliases = ["thrust", "pierce", "stab", "chop", "parry", "defend"]
     locks = "cmd:all()"
     help_category = "TutorialWorld"
 
@@ -186,11 +151,11 @@ class WeaponAttack(Command):
 
         cmdstring = self.cmdstring
 
-        if cmdstring in ("attack", "fight"):
-            string = "How do you want to fight? Choose one of 'stab', 'slash' or 'defend'."
-            self.caller.msg(string)
-            return
-
+#        if cmdstring in ("attack", "fight"):
+#            string = "How do you want to fight? Choose one of 'stab', 'slash' or 'defend'."
+#            self.caller.msg(string)
+#            return
+#
         # parry mode
         if cmdstring in ("parry", "defend"):
             string = "You raise your weapon in a defensive pose, ready to block the next enemy attack."
@@ -212,16 +177,16 @@ class WeaponAttack(Command):
         if cmdstring in ("thrust", "pierce", "stab"):
             hit = float(self.obj.db.hit) * 0.7  # modified due to stab
             damage = self.obj.db.damage * 2  # modified due to stab
-            string = "You stab with %s. " % self.obj.key
-            tstring = "%s stabs at you with %s. " % (self.caller.key, self.obj.key)
-            ostring = "%s stabs at %s with %s. " % (self.caller.key, target.key, self.obj.key)
+            string = "You stab with a %s. " % self.obj.key
+            tstring = "%s stabs at you with a %s. " % (self.caller.key, self.obj.key)
+            ostring = "%s stabs at %s with a %s. " % (self.caller.key, target.key, self.obj.key)
             self.caller.db.combat_parry_mode = False
         elif cmdstring in ("slash", "chop"):
             hit = float(self.obj.db.hit)   # un modified due to slash
             damage = self.obj.db.damage  # un modified due to slash
-            string = "You slash with %s. " % self.obj.key
-            tstring = "%s slash at you with %s. " % (self.caller.key, self.obj.key)
-            ostring = "%s slash at %s with %s. " % (self.caller.key, target.key, self.obj.key)
+            string = "You slashes with a %s. " % self.obj.key
+            tstring = "%s slashes at you with a %s. " % (self.caller.key, self.obj.key)
+            ostring = "%s slashes at %s with a %s. " % (self.caller.key, target.key, self.obj.key)
             self.caller.db.combat_parry_mode = False
         else:
             self.caller.msg("You fumble with your weapon, unsure of whether to stab, slash or parry ...")
@@ -232,7 +197,7 @@ class WeaponAttack(Command):
         if target.db.combat_parry_mode:
             # target is defensive; even harder to hit!
             target.msg("{GYou defend, trying to avoid the attack.{n")
-            hit *= 0.5
+            hit *= 2.5
 
         if random.random() <= hit:
             self.caller.msg(string + "{gIt's a hit!{n")
@@ -245,6 +210,7 @@ class WeaponAttack(Command):
                 return target.at_hit(self.obj, self.caller, damage)
             elif target.db.HP:
                 target.db.HP -= damage
+                target.msg("DATA,health,%d" % target.db.HP)
             else:
                 # sorry, impossible to fight this enemy ...
                 self.caller.msg("The enemy seems unaffacted.")
@@ -274,9 +240,9 @@ class Weapon(TutorialObject):
     def at_object_creation(self):
         "Called at first creation of the object"
         super(Weapon, self).at_object_creation()
-        self.db.hit = 0.4    # hit chance
-        self.db.parry = 0.8  # parry chance
-        self.db.damage = 1.0
+        self.db.hit = 2.0    # hit chance
+        self.db.parry = 4.0  # parry chance
+        self.db.damage = 5.0
         self.db.magic = False
         self.cmdset.add_default(CmdSetWeapon, permanent=True)
 

@@ -8,6 +8,7 @@ Rooms are simple containers that has no location of their own.
 from evennia import DefaultRoom, utils
 from characters import Character
 from npc import Npc
+from mob import Mob
 from evennia import TICKER_HANDLER as tickerhandler
 
 class Room(DefaultRoom):
@@ -47,6 +48,12 @@ class Room(DefaultRoom):
                     if utils.inherits_from(item, Character) and item.dbref != obj.dbref:
                         obj.msg("DATA,char_add," + item.name + item.dbref)
 			item.msg("DATA,char_add," + obj.name + obj.dbref)
+                    if not utils.inherits_from(item, Character):
+                        obj.msg("DATA,obj_add," + item.name + item.dbref)
+
+
+                    if utils.inherits_from(item, Mob) and item.dbref != obj.dbref:
+                        obj.msg("DATA,char_add," + item.name + item.dbref)
 
 
     def at_object_leave(self, obj, target_location):
@@ -54,6 +61,11 @@ class Room(DefaultRoom):
             for item in self.contents:
                 if utils.inherits_from(item, Character) and item.dbref != obj.dbref:
                     item.msg("DATA,char_remove," + obj.name + obj.dbref)
+                if utils.inherits_from(item, Mob) and item.dbref != obj.dbref:
+                    item.msg("DATA,char_remove," + obj.name + obj.dbref)
+                    if not utils.inherits_from(item, Character):
+                        obj.msg("DATA,obj_remove," + item.name + item.dbref)
+
 
 
         if utils.inherits_from(obj, Npc): # An NPC has left

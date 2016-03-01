@@ -133,12 +133,16 @@ class RoomState(DefaultScript):
         if self.obj.db.roomtype_value == 'university':
             pass
         if self.obj.db.roomtype_key == 'leisure' or self.obj.db.roomtype_key == 'building':
-            prototype = random.choice(self.db.available_veggies)
-            # use the spawner to create a new Vegetable from the
-            # spawner dictionary
-            veggie = spawn(objects.VEGETABLE_PROTOTYPES[prototype], prototype_parents=objects.VEGETABLE_PROTOTYPES)[0]
-            veggie.location = self.obj
-            print veggie
+            veggies_in_room = [obj for obj in self.obj.contents_get() if utils.inherits_from(obj, objects.Vegetable)]
+            if not veggies_in_room:
+                prototype = random.choice(self.db.available_veggies)
+                # use the spawner to create a new Vegetable from the
+                # spawner dictionary
+                veggie = spawn(objects.VEGETABLE_PROTOTYPES[prototype], prototype_parents=objects.VEGETABLE_PROTOTYPES)[0]
+                veggie.location = self.obj
+                veggiestring = ("A %s ripens" % veggie)
+                self.obj.msg_contents(veggiestring)
+
 
     def at_repeat(self):
         "called every self.interval seconds."        
@@ -165,4 +169,5 @@ class RoomState(DefaultScript):
             # spawner dictionary
             veggie = spawn(objects.VEGETABLE_PROTOTYPES[prototype], prototype_parents=objects.VEGETABLE_PROTOTYPES)[0]
             veggie.location = self.obj
-            print prototype
+            veggiestring = ("A %s ripens" % veggie)
+            self.obj.msg_contents(veggiestring)
