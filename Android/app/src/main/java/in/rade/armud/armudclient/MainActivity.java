@@ -20,6 +20,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.SharedPreferences;
 import android.location.Location;
 import android.os.Bundle;
 import android.support.v4.content.LocalBroadcastManager;
@@ -31,6 +32,7 @@ import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.ListAdapter;
 import android.widget.ListView;
+import android.widget.PopupWindow;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -396,10 +398,17 @@ public class MainActivity extends ActionBarActivity implements
             }
         }
         //TODO login string generator
-        final String loginstring = "connect test test";
-        Log.d(WEBSOCKET_TAG, loginstring);
 
-        client.send(loginstring);
+        SharedPreferences prefs = getPreferences(MODE_PRIVATE);
+        /*
+        if (!prefs.contains("LOGIN_STRING")) {
+            PopupWindow window = new PopupWindow(new LoginView(this),100,200, true);
+            window.showAsDropDown(findViewById(R.id.scrollView));
+        }*/
+        final String loginString = prefs.getString("LOGIN_STRING", "connect test test");
+        Log.d(WEBSOCKET_TAG, loginString);
+
+        client.send(loginString);
     }
 
     /**

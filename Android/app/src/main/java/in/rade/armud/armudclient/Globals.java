@@ -55,5 +55,4 @@ public abstract class Globals {
 
     public static final String ARMUD_DATA_PATH = "/ARMUD_DATA";
     public static final String COMMAND_PATH = "/COMMAND";
-
 }

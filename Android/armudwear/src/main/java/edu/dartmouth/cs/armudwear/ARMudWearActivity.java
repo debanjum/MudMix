@@ -40,9 +40,16 @@ WearableListView.OnCentralPositionChangedListener {
     private WearableListView mFocusListView;
 
     private ArrayList<String> mCharArray;
+    private ArrayList<String> mMobArray;
     private ArrayList<String> mObjArray;
     private ArrayList<String> mInvArray;
     private ArrayList<String> mFocusArray;
+
+    private int mHealthPoints;
+    private int mMagicPoints;
+    private int mGoldPieces;
+    private int mLevel;
+
 
     private int mCurrentFocusContext;
     private String mCurrentFocusObject;
@@ -66,15 +73,15 @@ WearableListView.OnCentralPositionChangedListener {
             public void onLayoutInflated(WatchViewStub stub) {
                 mFocusListView = (WearableListView) stub.findViewById(R.id.focusListView);
                 mTitleView = (TextView) stub.findViewById(R.id.titleText);
-                loadAdapter();
+                updateFocusArray();
             }
         });
 
         mCharArray = new ArrayList<String>();
         mObjArray = new ArrayList<String>();
         mInvArray = new ArrayList<String>();
+        mMobArray = new ArrayList<String>();
         mFocusArray = new ArrayList<String>();
-        mFocusArray.add("Nothing Here");
         mCurrentFocusObject = "";
         mCurrentFocusContext = Globals.FOCUS_CONTEXT_IDLE;
 
@@ -134,6 +141,12 @@ WearableListView.OnCentralPositionChangedListener {
                 case "inv_remove":
                     if (mInvArray.contains(obj))
                         mInvArray.remove(obj);
+                    break;
+                case "health":
+                    mHealthPoints = Integer.parseInt(obj);
+                    break;
+                case "level:":
+                    mLevel = Integer.parseInt(obj);
                     break;
                 case "LOC":
                     mTitleView.setText(obj);
@@ -200,10 +213,15 @@ WearableListView.OnCentralPositionChangedListener {
     private void updateFocusArray() {
         mFocusArray.clear();
         mFocusArray.addAll(mCharArray);
+        mFocusArray.addAll(mMobArray);
+        mFocusArray.addAll(mObjArray);
+        mFocusArray.addAll(mInvArray);
         if (mFocusArray.isEmpty()){
-            mFocusArray.add("Nothin Here");
+            mFocusArray.add("Nothing Here");
         }
-        loadAdapter();
+        Log.d("updating listview", mFocusArray.get(0));
+        ObjectAdapter mAdapter = new ObjectAdapter(this, mFocusArray);
+        mFocusListView.setAdapter(mAdapter);
     }
 
 
@@ -241,11 +259,11 @@ WearableListView.OnCentralPositionChangedListener {
 
     private void updateDisplay() {
         if (isAmbient()) {
- //           mContainerView.setBackgroundColor(getResources().getColor(android.R.color.black));
- //          mTitleView.setTextColor(getResources().getColor(android.R.color.white));
+            mContainerView.setBackgroundColor(getResources().getColor(android.R.color.black));
+           mTitleView.setTextColor(getResources().getColor(android.R.color.white));
         } else {
-//            mContainerView.setBackground(null);
- //           mTitleView.setTextColor(getResources().getColor(android.R.color.black));
+            mContainerView.setBackground(null);
+            mTitleView.setTextColor(getResources().getColor(android.R.color.black));
         }
     }
     protected synchronized void buildGoogleApiClient() {
@@ -283,11 +301,6 @@ WearableListView.OnCentralPositionChangedListener {
         mCurrentFocusObject = mFocusArray.get(i);
     }
 
-    private void loadAdapter() {
-        Log.d("updating listview", mFocusArray.get(0));
-        ObjectAdapter mAdapter = new ObjectAdapter(this, mFocusArray);
-        mFocusListView.setAdapter(mAdapter);
-    }
 
     class SendMessageToPhoneThread extends Thread {
         String path;

@@ -1,6 +1,7 @@
 package edu.dartmouth.cs.armudwear;
 
 import android.content.Context;
+import android.view.Gravity;
 import android.view.View;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
@@ -16,7 +17,7 @@ public final class ObjectView extends FrameLayout implements WearableListView.On
         super(context);
         View.inflate(context, R.layout.list_item, this);
         text = (TextView) findViewById(R.id.text);
-
+        text.setGravity(Gravity.CENTER_HORIZONTAL);
     }
 
     @Override
