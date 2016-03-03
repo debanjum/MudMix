@@ -227,8 +227,10 @@ WearableListView.OnCentralPositionChangedListener {
                     mLevel = Integer.parseInt(obj);
                     break;
                 case "LOC":
-                    mCurrentLocation = obj;
-                    onClickContextSwitch(mCurrentFocusContext);
+                    if (!mCurrentLocation.equals(obj)) {
+                        mCurrentLocation = obj;
+                        onClickContextSwitch(mCurrentFocusContext);
+                    }
             }
         }
     };
