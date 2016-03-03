@@ -131,6 +131,7 @@ WearableListView.OnCentralPositionChangedListener {
         mCurrentFocusObject = "";
         mCurrentFocusContext = Globals.FOCUS_CONTEXT_CHARACTER;
         mFocusIsIdle = true;
+        mCurrentLocation = "";
 
         buildGoogleApiClient();
 
@@ -343,9 +344,10 @@ WearableListView.OnCentralPositionChangedListener {
         super.onStart();
         mGoogleApiClient.connect();
         startService(new Intent(this, WatchDataLayerListenerService.class));
+        /*
         if (!mFocusIsIdle) {
             startService(mClassifyIntent);
-        }
+        } */
     }
 
     @Override
@@ -353,9 +355,10 @@ WearableListView.OnCentralPositionChangedListener {
         super.onStop();
         mGoogleApiClient.disconnect();
         stopService(new Intent(this, WatchDataLayerListenerService.class));
+        /*
         if (!mFocusIsIdle) {
             stopService(mClassifyIntent);
-        }
+        } */
     }
 
     @Override
