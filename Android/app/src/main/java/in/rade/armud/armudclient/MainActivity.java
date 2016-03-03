@@ -22,7 +22,9 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.location.Location;
+import android.os.Build;
 import android.os.Bundle;
+import android.speech.tts.TextToSpeech;
 import android.support.v4.content.LocalBroadcastManager;
 import android.support.v7.app.ActionBarActivity;
 import android.util.Log;
@@ -60,6 +62,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.Observable;
 import java.util.Observer;
@@ -70,7 +73,7 @@ import in.rade.armud.armudclient.websocket.WebSocketClient;
 
 
 public class MainActivity extends ActionBarActivity implements
-        ConnectionCallbacks, OnConnectionFailedListener, LocationListener {
+        ConnectionCallbacks, OnConnectionFailedListener, LocationListener, TextToSpeech.OnInitListener {
 
     protected static final String LOCATION_TAG = "location-updates-sample";
     protected static final String WEBSOCKET_TAG = "Websocket-client";
@@ -150,6 +153,7 @@ public class MainActivity extends ActionBarActivity implements
 
     protected static final float mAccuracyThresh = 30; // only update if less than 15 meter accuracy
 
+    private TextToSpeech tts;       //Declare text to speech variable
 
     /**
      * Time when the location was updated represented as a String.
@@ -211,13 +215,12 @@ public class MainActivity extends ActionBarActivity implements
         // Initialise a listview adapter with the project titles and use it
         // in the listview to show the list of project.
 
-        //count = 0;
+        // Initialise TTS engine
+        tts = new TextToSpeech(this, this);
+
         //Login to MUD
         logintoMUD();
-        //client.connect();
-        //client.send("connect test test");
-        //client.send("location 72.123 23.412");
-        //client.disconnect();
+
         // Update values using data stored in the Bundle.
         updateValuesFromBundle(savedInstanceState);
 
@@ -230,6 +233,18 @@ public class MainActivity extends ActionBarActivity implements
                 new IntentFilter(Globals.COMMAND_PATH));
 
         startService(new Intent(this, PhoneDataLayerListenerService.class));
+    }
+
+
+    @Override
+    public void onInit(int code) {
+        if (code==TextToSpeech.SUCCESS) {
+            tts.setLanguage(Locale.getDefault());
+            Log.d("TTS initialised. Code: ", String.valueOf(code));
+        } else {
+            tts = null;
+            Log.d("TTS failed. Code:", String.valueOf(code));
+        }
     }
 
     private BroadcastReceiver mMsgFromWearReceiver = new BroadcastReceiver() {
@@ -335,7 +350,10 @@ public class MainActivity extends ActionBarActivity implements
         mGoogleApiClient.disconnect();
         LocalBroadcastManager.getInstance(this).unregisterReceiver(mMsgFromWearReceiver);
         super.onStop();
-    }
+        if (tts!=null) {
+            tts.stop();
+            tts.shutdown();
+        }};
 
     /**
      * WEBSOCKET CONDUIT CODE
@@ -436,10 +454,21 @@ public class MainActivity extends ActionBarActivity implements
         } else{
             //TODO TEXT TO SPEECH
             //keep in mind that the message either can't have commas or the splitMessage array needs to be reworked
+            speech(splitMessage[0]);
             mLocInfoLabel = splitMessage[0];
         }
     }
 
+    private void speech(String Message)
+    {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            tts.speak(Message, TextToSpeech.QUEUE_FLUSH, null, null);
+            Log.d("Message Passed to TTS:", Message);
+        }
+        else{
+            Log.d("SDK Version less than:", String.valueOf(Build.VERSION_CODES.LOLLIPOP));
+        }
+    }
 
     private void addToFocusables(int type, String objName) {
         Log.d(WEBSOCKET_TAG, "adding new focusable object");
