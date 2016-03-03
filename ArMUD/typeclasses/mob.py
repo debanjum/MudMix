@@ -5,14 +5,13 @@ object based on that mobile class.
 
 """
 
-import random
 
 from evennia import TICKER_HANDLER
 from evennia import search_object
 from evennia import Command, CmdSet
 from evennia import logger
 import objects as tut_objects
-#from evennia.contrib.tutorial_world import objects as tut_objects
+import random
 
 class CmdMobOnOff(Command):
     """
@@ -135,12 +134,15 @@ class Mob(tut_objects.TutorialObject):
 
         # store two separate descriptions, one for alive and
         # one for dead (corpse)
-        self.db.desc_alive = "This is a moving object."
-        self.db.desc_dead = "A dead body."
+        self.db.desc_alive = "This is an angry zombie. It roams the university building, searching for a place to give its dissertation."
+        self.db.desc_dead = "A dead zombie corpse."
 
-        # health stats
-        self.db.full_health = 20
-        self.db.health = 20
+        # HP stats
+        self.db.full_HP = 100
+        self.db.HP = 100
+        self.db.STR = 3#randint(1, 10)
+        self.db.combat = 5#randint(5, 10)
+
 
         # when this mob defeats someone, we move the character off to
         # some other place (Dark Cell in the tutorial).
@@ -211,7 +213,7 @@ class Mob(tut_objects.TutorialObject):
         Set the mob to "alive" mode. This effectively
         resurrects it from the dead state.
         """
-        self.db.health = self.db.full_health
+        self.db.HP = self.db.full_HP
         self.db.is_dead = False
         self.db.desc = self.db.desc_alive
         self.ndb.is_immortal = self.db.immortal
@@ -257,7 +259,7 @@ class Mob(tut_objects.TutorialObject):
         self.ndb.is_hunting = False
         self.ndb.is_attacking = False
         # for the tutorial, we also heal the mob in this mode
-        self.db.health = self.db.full_health
+        self.db.HP = self.db.full_HP
 
     def start_hunting(self):
         """
@@ -366,7 +368,7 @@ class Mob(tut_objects.TutorialObject):
 
         # analyze the current state
         if target.db.HP <= 0:
-            # we reduced the target to <= 0 health. Move them to the
+            # we reduced the target to <= 0 HP. Move them to the
             # defeated room
             target.msg(self.db.defeat_msg)
             self.location.msg_contents(self.db.defeat_msg_room % target.key, exclude=target)
@@ -391,10 +393,10 @@ class Mob(tut_objects.TutorialObject):
                 attacker.msg(self.db.weapon_ineffective_msg)
             else:
                 self.location.msg_contents(self.db.hit_msg)
-            self.db.health -= damage
+            self.db.HP -= damage
 
         # analyze the result
-        if self.db.health <= 0:
+        if self.db.HP <= 0:
             # we are dead!
             attacker.msg(self.db.death_msg)
             self.set_dead()

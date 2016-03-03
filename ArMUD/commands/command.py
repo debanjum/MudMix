@@ -6,9 +6,43 @@ Commands describe the input the player can do to the game.
 """
 
 from evennia import Command as BaseCommand
-from evennia import default_cmds
+from evennia import default_cmds, utils
+from evennia.typeclasses import managers
 from world import rules
+from typeclasses.characters import Character
+from typeclasses.mob import Mob
+from typeclasses.objects import Weapon
 import overpass, json
+
+class EatVegetable(BaseCommand):
+    """
+    Eat the vegetable
+    Usage:
+      eat <vegetable>
+    This will eat a vegetable in the same room with you bare hands.
+    """
+    key = "eat"
+    aliases = ["consume"]
+    locks = "cmd:all()"
+    help_category = "General"
+
+    def func(self):
+        "Implements eating"
+
+        if not self.args:
+            caller = self.caller
+            caller.msg("You need to choose a vegetable to eat.")
+            return
+
+        # if vegetable to be eaten is in the room
+        for obj in self.args.split():
+            veggie_inroom = [room_obj for room_obj in self.caller.location.contents_get() if utils.inherits_from(room_obj, objects.Vegetable) if obj in room_obj.name]
+            if veggie_inroom:
+                string = ("You eat your %s" % obj)
+                self.caller.msg(string)
+                self.caller.db.HP += veggie_inroom[0].db.heal
+                self.caller.db.STR += veggie_inroom[0].db.strength
+                veggie_inroom[0].delete()
 
 
 class Location(BaseCommand):
@@ -26,7 +60,6 @@ class Location(BaseCommand):
     aliases = ["loc"]
     locks = "cmd:all()"
     help_category = "General"
-    loc = []
 
     def parse(self):
         self.loc = self.args.split()
@@ -86,21 +119,50 @@ class CmdAttack(BaseCommand):
     This will attack a target in the same room, dealing 
     damage with your bare hands. 
     """
-    key = "punch"
-    aliases = ["kick", "box"]
+    key = "attack"
+    aliases = ["kill", "hit"]
     locks = "cmd:all()"
     help_category = "General"
-    loc = []
 
     def func(self):
         "Implementing combat"
 
-        if not self.args:
+        # test iff not one argument passed
+        if not self.args or len(self.args.split())>1:
             caller = self.caller
-            caller.msg("You need to pick a target to attack.")
+            caller.msg("You need to pick a single target to attack.")
             return
 
-        character1 = self.caller
-        character2 = self.caller.search(self.args)
+        character = self.caller
 
-        rules.roll_challenge(character1, character2, "kickbox")
+        # search for object referred in argument
+        if '#' in self.args:  # if '#' in argument search by dbref
+            enemyname = "#"+self.args.split('#')[1]
+
+            # object in room with same dbref
+            enemy = [obj for obj in self.caller.location.contents_get() if enemyname==obj.dbref]
+
+            # if enemy asked for in room
+            if enemy:
+                enemy = enemy[0]
+            else:
+                self.caller.msg("%s doesn't exist in this room" % self.args)
+                return
+        else:                 # else search by name
+            # object in room with same name
+            enemy = self.caller.search(self.args.split()[0])
+        
+        # if object not of type character or mob
+        if not (utils.inherits_from(enemy, Character) or utils.inherits_from(enemy, Mob)):
+            self.caller.msg("%s can't be attacked" % self.args)
+            return
+
+        # if user has weapon get first weapon
+        weapons = [pobj for pobj in self.caller.contents_get() if utils.inherits_from(pobj, Weapon)]
+        print weapons
+        if weapons:
+            character.msg("You slash at %s" % enemy)
+            self.caller.execute_cmd("slash %s" % enemy)
+        else:
+            character.msg("You punch %s" % enemy)
+            rules.roll_challenge(character, enemy, "kickbox")

@@ -7,8 +7,10 @@ is setup to be the "default" character type created by the default
 creation commands.
 
 """
-from evennia import DefaultCharacter
+from evennia import DefaultCharacter, utils
 from random import randint
+from typeclasses.mob import Mob
+from typeclasses.objects import Weapon
 
 class Character(DefaultCharacter):
     """
@@ -43,6 +45,30 @@ class Character(DefaultCharacter):
         self.db.STR = randint(1, 10)
         self.db.combat = randint(5, 10)
 
+    def at_post_puppet(self):
+        """
+        Called when user logs in and starts puppeting a character
+        """
+
+        # pass stats to the player
+        self.msg("DATA,level,%d" % self.db.level)
+        self.msg("DATA,health,%d" % self.db.HP)
+        self.msg("DATA,xp,%d" % self.db.XP)
+        self.msg("DATA,strength,%d" % self.db.STR)
+        self.msg("DATA,combat,%d" % self.db.combat)
+
+        # pass room items to the player
+        for item in self.location.contents:
+            if utils.inherits_from(item, Character) and item.dbref != self.dbref:
+                self.msg("DATA,char_add," + item.name + item.dbref)
+            elif not utils.inherits_from(item, Mob):
+                self.msg("DATA,mob_add," + item.name + item.dbref)
+            elif item.location == self.name:
+                self.msg("DATA,inv_add," + item.name + item.dbref)
+            else:
+                self.msg("DATA,obj_add," + item.name + item.dbref)
+
+
     def return_appearance(self, looker):
         """
         The return from this method is what
@@ -59,3 +85,12 @@ class Character(DefaultCharacter):
             # text is only one line; add score to end
             text += cscore
         return text
+
+
+    def at_after_move(self, source_location):
+        """
+        Default is to look around after a move 
+        Note:  This has been moved to room.at_object_receive
+        """
+        #self.execute_cmd('look')
+        pass
