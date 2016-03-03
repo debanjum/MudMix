@@ -17,6 +17,7 @@ public class PhoneDataLayerListenerService extends WearableListenerService {
     public void onMessageReceived(MessageEvent messageEvent) {
         Log.i(TAG, messageEvent.toString());
         if(messageEvent.getPath().equals(Globals.COMMAND_PATH)) {
+            Log.d(TAG, "Message is command");
             final String message = new String(messageEvent.getData());
             Intent intent = new Intent(Globals.COMMAND_PATH);
             intent.putExtra("message", message);

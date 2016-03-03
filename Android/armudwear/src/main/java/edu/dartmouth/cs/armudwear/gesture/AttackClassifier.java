@@ -1,5 +1,4 @@
 package edu.dartmouth.cs.armudwear.gesture;
-//TODO: Create context based classifiers: character, object, inventory classifiers
 
 import edu.dartmouth.cs.armudwear.Globals;
 

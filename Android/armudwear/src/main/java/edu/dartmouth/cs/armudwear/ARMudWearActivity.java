@@ -11,8 +11,16 @@ import android.support.wearable.activity.WearableActivity;
 import android.support.wearable.view.WatchViewStub;
 import android.support.wearable.view.WearableListView;
 import android.util.Log;
+import android.view.View;
+import android.widget.Button;
 import android.widget.TextView;
 
+import com.androidplot.ui.AnchorPosition;
+import com.androidplot.ui.LayoutManager;
+import com.androidplot.ui.SizeLayoutType;
+import com.androidplot.ui.SizeMetrics;
+import com.androidplot.ui.XLayoutStyle;
+import com.androidplot.ui.YLayoutStyle;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.wearable.MessageApi;
@@ -20,24 +28,30 @@ import com.google.android.gms.wearable.Node;
 import com.google.android.gms.wearable.NodeApi;
 import com.google.android.gms.wearable.Wearable;
 
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Locale;
 
+import edu.dartmouth.cs.armudwear.UI.ObjectAdapter;
+import edu.dartmouth.cs.armudwear.UI.StatsSeries;
 import edu.dartmouth.cs.armudwear.data.WatchDataLayerListenerService;
 import edu.dartmouth.cs.armudwear.gesture.SensorsService;
 
+
+
+import android.graphics.Color;
+import android.graphics.Paint;
+
+import com.androidplot.xy.*;
 
 public class ARMudWearActivity extends WearableActivity
 implements GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener,
 WearableListView.OnCentralPositionChangedListener {
 
-    private static final SimpleDateFormat AMBIENT_DATE_FORMAT =
-            new SimpleDateFormat("HH:mm", Locale.US);
 
     private WatchViewStub mContainerView;
     private TextView mTitleView;
     private WearableListView mFocusListView;
+    private Button mLeftListButton;
+    private Button mRightListButton;
 
     private ArrayList<String> mCharArray;
     private ArrayList<String> mMobArray;
@@ -45,19 +59,28 @@ WearableListView.OnCentralPositionChangedListener {
     private ArrayList<String> mInvArray;
     private ArrayList<String> mFocusArray;
 
+    private String[] mButtonLabels = { "Chr", "Obj", "Inv"};
+    private String[] mTitles = {"Characters: ", "Objects: ", "Your Inventory"};
+    private String mCurrentLocation;
     private int mHealthPoints;
+    private int mMaxHP;
     private int mMagicPoints;
     private int mGoldPieces;
     private int mLevel;
 
+    private XYPlot statsPlot;
+    private StatsSeries mHealthSeries;
+    private StatsSeries mExperienceSeries;
 
     private int mCurrentFocusContext;
     private String mCurrentFocusObject;
+    private boolean mFocusIsIdle;
     Intent mClassifyIntent;
 
     protected GoogleApiClient mGoogleApiClient;
 
     private Vibrator vibrator;
+
 
 
     @Override
@@ -67,13 +90,37 @@ WearableListView.OnCentralPositionChangedListener {
         setContentView(R.layout.activity_armud_wear);
         setAmbientEnabled();
 
+        final WearableListView.OnCentralPositionChangedListener listener = this;
+        final Context context = this;
         mContainerView = (WatchViewStub) findViewById(R.id.watch_view_stub);
         mContainerView.setOnLayoutInflatedListener(new WatchViewStub.OnLayoutInflatedListener() {
             @Override
             public void onLayoutInflated(WatchViewStub stub) {
                 mFocusListView = (WearableListView) stub.findViewById(R.id.focusListView);
                 mTitleView = (TextView) stub.findViewById(R.id.titleText);
-                updateFocusArray();
+                statsPlot = (XYPlot) stub.findViewById(R.id.statsPlot);
+                updateFocusArray(Globals.FOCUS_CONTEXT_CHARACTER);
+                mFocusListView.addOnCentralPositionChangedListener(listener);
+                createStatsDisplay();
+                mLeftListButton = (Button) stub.findViewById(R.id.leftListButton);
+                mRightListButton = (Button) stub.findViewById(R.id.rightListButton);
+                mLeftListButton.setOnClickListener(
+                        new View.OnClickListener() {
+                            @Override
+                            public void onClick(View v) {
+                                mCurrentFocusContext = (mCurrentFocusContext + 1) % 3;
+                                onClickContextSwitch();
+                            }
+                        });
+                mRightListButton.setOnClickListener(
+                        new View.OnClickListener() {
+                            @Override
+                            public void onClick(View v) {
+                                //(a % b + b) % b : modulus
+                                mCurrentFocusContext = ((mCurrentFocusContext - 1) % 3 + 3) % 3;
+                                onClickContextSwitch();
+                            }
+                        });
             }
         });
 
@@ -83,7 +130,8 @@ WearableListView.OnCentralPositionChangedListener {
         mMobArray = new ArrayList<String>();
         mFocusArray = new ArrayList<String>();
         mCurrentFocusObject = "";
-        mCurrentFocusContext = Globals.FOCUS_CONTEXT_IDLE;
+        mCurrentFocusContext = Globals.FOCUS_CONTEXT_CHARACTER;
+        mFocusIsIdle = true;
 
         buildGoogleApiClient();
 
@@ -94,9 +142,23 @@ WearableListView.OnCentralPositionChangedListener {
                 new IntentFilter(Globals.COMMAND_UPDATED));
 
         startService(new Intent(this, WatchDataLayerListenerService.class));
-        Log.d("onCreate", "complete");
 
         vibrator = (Vibrator) getSystemService(VIBRATOR_SERVICE);
+    }
+
+    public void onClickContextSwitch() {
+        updateFocusArray(mCurrentFocusContext);
+        switchFocusContext(mCurrentFocusContext);
+        //(a % b + b) % b: modulus
+        mLeftListButton.setText(mButtonLabels[(mCurrentFocusContext + 1) % 3]);
+        mRightListButton.setText(mButtonLabels[((mCurrentFocusContext - 1) % 3 + 3) % 3]);
+        String titleSuffix;
+        if (mCurrentFocusContext == Globals.FOCUS_CONTEXT_INVENTORY) {
+            titleSuffix = "";
+        } else {
+            titleSuffix = mCurrentLocation;
+        }
+        mTitleView.setText(mTitles[mCurrentFocusContext] + titleSuffix);
     }
 
     // mMsgToWearReceiver will be called whenever an Intent
@@ -116,55 +178,122 @@ WearableListView.OnCentralPositionChangedListener {
                         mCharArray.add(obj);
                         if (mCurrentFocusObject.equals("")) {
                             mCurrentFocusObject = obj;
-                            if (mCurrentFocusContext != Globals.FOCUS_CONTEXT_CHARACTER) {
+                            if (mCurrentFocusContext != Globals.FOCUS_CONTEXT_CHARACTER || mFocusIsIdle) {
                                 switchFocusContext(Globals.FOCUS_CONTEXT_CHARACTER);
                             }
                         }
+                        updateFocusArray(Globals.FOCUS_CONTEXT_CHARACTER);
                     }
                     break;
                 case "char_remove":
-                    if (mCharArray.contains(obj))
+                    if (mCharArray.contains(obj)) {
                         mCharArray.remove(obj);
+                        updateFocusArray(Globals.FOCUS_CONTEXT_CHARACTER);
+                    }
                     break;
                 case "obj_add":
-                    if (!mObjArray.contains(obj))
+                    if (!mObjArray.contains(obj)) {
                         mObjArray.add(obj);
+                        updateFocusArray(Globals.FOCUS_CONTEXT_OBJECT);
+                    }
                     break;
                 case "obj_remove":
-                    if (mObjArray.contains(obj))
+                    if (mObjArray.contains(obj)) {
                         mObjArray.remove(obj);
+                        updateFocusArray(Globals.FOCUS_CONTEXT_OBJECT);
+                    }
                     break;
                 case "inv_add":
-                    if (!mInvArray.contains(obj))
+                    if (!mInvArray.contains(obj)) {
                         mInvArray.add(obj);
+                        updateFocusArray(Globals.FOCUS_CONTEXT_INVENTORY);
+                    }
                     break;
                 case "inv_remove":
-                    if (mInvArray.contains(obj))
+                    if (mInvArray.contains(obj)) {
                         mInvArray.remove(obj);
+                        updateFocusArray(Globals.FOCUS_CONTEXT_INVENTORY);
+                    }
                     break;
                 case "health":
                     mHealthPoints = Integer.parseInt(obj);
+                    mHealthSeries.updateValue(mHealthPoints);
+                    if (mHealthPoints > mMaxHP) {
+                        mMaxHP = mHealthPoints;
+                        mHealthSeries.updateMaxValue(mMaxHP);
+                    }
+                    statsPlot.redraw();
                     break;
                 case "level:":
                     mLevel = Integer.parseInt(obj);
                     break;
                 case "LOC":
-                    mTitleView.setText(obj);
+                    mCurrentLocation = obj;
+                    onClickContextSwitch();
             }
-            updateFocusArray();
         }
     };
 
+
+    /*
+     * This function starts and stops different classifier services
+     * Depending on which kind of listview is shown to the user
+     */
     private void switchFocusContext(int focusContext) {
-        if (mCurrentFocusContext == focusContext){
+        if (mCurrentFocusContext == focusContext && !mFocusIsIdle){
             return;
         }
-        if (mCurrentFocusContext != Globals.FOCUS_CONTEXT_IDLE) {
+        if (!mFocusIsIdle) {
             stopService(mClassifyIntent);
+            mFocusIsIdle = true;
         }
-        mClassifyIntent = new Intent(this, SensorsService.class);
-        mClassifyIntent.putExtra(Globals.CONTEXT_KEY, focusContext);
-        startService(mClassifyIntent);
+        if (focusContext != Globals.FOCUS_CONTEXT_IDLE) {
+            mClassifyIntent = new Intent(this, SensorsService.class);
+            mClassifyIntent.putExtra(Globals.CONTEXT_KEY, focusContext);
+            startService(mClassifyIntent);
+            mFocusIsIdle = false;
+        }
+        mCurrentFocusContext = focusContext;
+        Log.d("Focus Context", Integer.toString(mCurrentFocusContext));
+    }
+
+
+    /*
+     * This function updates the listview shown to the user
+     * it is called when the server updates the objects in the
+     * user's current environment
+     */
+    private int updateFocusArray(int focusContext) {
+        int returnValue = focusContext;
+        if (mCurrentFocusContext == focusContext) {
+            mFocusArray.clear();
+            switch (focusContext)
+            {
+                case Globals.FOCUS_CONTEXT_CHARACTER:
+                    mFocusArray.addAll(mCharArray);
+                    mFocusArray.addAll(mMobArray);
+                    break;
+                case Globals.FOCUS_CONTEXT_OBJECT:
+                    mFocusArray.addAll(mObjArray);
+                    break;
+                case Globals.FOCUS_CONTEXT_INVENTORY:
+                    mFocusArray.addAll(mInvArray);
+                    break;
+                case Globals.FOCUS_CONTEXT_IDLE:
+                    break;
+            }
+            if (mFocusArray.isEmpty()){
+                mFocusArray.add("Nothing Here");
+                mCurrentFocusObject = "";
+            } else {
+                // the next line is bad, because it updates the focus object whenever a new object is added to the current list
+                mCurrentFocusObject = mFocusArray.get(0);
+            }
+            Log.d("updating listview", mFocusArray.get(0));
+            ObjectAdapter mAdapter = new ObjectAdapter(this, mFocusArray);
+            mFocusListView.setAdapter(mAdapter);
+        }
+        return returnValue;
     }
 
     // mCommandReceiver will be called whenever an Intent
@@ -205,24 +334,10 @@ WearableListView.OnCentralPositionChangedListener {
                 new SendMessageToPhoneThread(Globals.COMMAND_PATH, command + " " + obj).start();
             } else {
                 Log.d("Send command failure", "not connected to phone");
+                mGoogleApiClient.connect();
             }
         }
     };
-
-
-    private void updateFocusArray() {
-        mFocusArray.clear();
-        mFocusArray.addAll(mCharArray);
-        mFocusArray.addAll(mMobArray);
-        mFocusArray.addAll(mObjArray);
-        mFocusArray.addAll(mInvArray);
-        if (mFocusArray.isEmpty()){
-            mFocusArray.add("Nothing Here");
-        }
-        Log.d("updating listview", mFocusArray.get(0));
-        ObjectAdapter mAdapter = new ObjectAdapter(this, mFocusArray);
-        mFocusListView.setAdapter(mAdapter);
-    }
 
 
     @Override
@@ -230,6 +345,9 @@ WearableListView.OnCentralPositionChangedListener {
         super.onStart();
         mGoogleApiClient.connect();
         startService(new Intent(this, WatchDataLayerListenerService.class));
+        if (!mFocusIsIdle) {
+            startService(mClassifyIntent);
+        }
     }
 
     @Override
@@ -237,6 +355,9 @@ WearableListView.OnCentralPositionChangedListener {
         super.onStop();
         mGoogleApiClient.disconnect();
         stopService(new Intent(this, WatchDataLayerListenerService.class));
+        if (!mFocusIsIdle) {
+            stopService(mClassifyIntent);
+        }
     }
 
     @Override
@@ -260,7 +381,7 @@ WearableListView.OnCentralPositionChangedListener {
     private void updateDisplay() {
         if (isAmbient()) {
             mContainerView.setBackgroundColor(getResources().getColor(android.R.color.black));
-           mTitleView.setTextColor(getResources().getColor(android.R.color.white));
+            mTitleView.setTextColor(getResources().getColor(android.R.color.white));
         } else {
             mContainerView.setBackground(null);
             mTitleView.setTextColor(getResources().getColor(android.R.color.black));
@@ -323,5 +444,61 @@ WearableListView.OnCentralPositionChangedListener {
                 }
             }
         }
+    }
+
+
+    public void createStatsDisplay() {
+        // get handles to our View defined in layout.xml:
+
+        XYGraphWidget graphWidget = statsPlot.getGraphWidget();
+        Paint white = new Paint();
+        white.setColor(Color.WHITE);
+        graphWidget.setBackgroundPaint(white);
+        graphWidget.setDomainGridLinePaint(null);
+        graphWidget.setRangeGridLinePaint(null);
+        graphWidget.setGridBackgroundPaint(null);
+        graphWidget.setMargins(0, 0, 0, 0);
+        graphWidget.setPadding(0, 0, 0, 0);
+        graphWidget.setGridPadding(0, 0, 0, 0);
+        graphWidget.setRangeLabelWidth(0);
+        graphWidget.setDomainLabelWidth(0);
+        graphWidget.position(-0.5f, XLayoutStyle.RELATIVE_TO_RIGHT,
+                -0.5f, YLayoutStyle.RELATIVE_TO_BOTTOM,
+                AnchorPosition.CENTER);
+        graphWidget.setSize(new SizeMetrics(
+                0, SizeLayoutType.FILL,
+                0, SizeLayoutType.FILL));
+        LayoutManager layoutManager = statsPlot.getLayoutManager();
+        layoutManager.remove(statsPlot.getRangeLabelWidget());
+        layoutManager.remove(statsPlot.getDomainLabelWidget());
+        layoutManager.remove(statsPlot.getLegendWidget());
+        statsPlot.setPlotMargins(0, 0, 0, 0);
+        statsPlot.setPlotPadding(0, 0, 0, 0);
+
+
+        StatsSeries baseline = new StatsSeries(30, 30, 30);
+        mHealthSeries = new StatsSeries(100, 29, 100);
+        mExperienceSeries = new StatsSeries(45, 27, 100);
+        mMaxHP = 100;
+
+        LineAndPointFormatter formatBase = new LineAndPointFormatter(Color.WHITE,null,null,null);
+        formatBase.getLinePaint().setStrokeJoin(Paint.Join.ROUND);
+        formatBase.getLinePaint().setStrokeWidth(20);
+        statsPlot.addSeries(baseline,
+                formatBase);
+
+        LineAndPointFormatter formatHealth = new LineAndPointFormatter(Color.RED,null,null,null);
+        formatHealth.getLinePaint().setStrokeJoin(Paint.Join.ROUND);
+        formatHealth.getLinePaint().setStrokeWidth(10);
+        statsPlot.addSeries(mHealthSeries,
+                formatHealth);
+
+
+        LineAndPointFormatter formatXP = new LineAndPointFormatter(Color.BLUE,null,null,null);
+        formatXP.getLinePaint().setStrokeWidth(10);
+        formatXP.getLinePaint().setStrokeJoin(Paint.Join.ROUND);
+
+        //formatter2.getFillPaint().setAlpha(220);
+        statsPlot.addSeries(mExperienceSeries, formatXP);
     }
 }

@@ -1,4 +1,4 @@
-package edu.dartmouth.cs.armudwear;
+package edu.dartmouth.cs.armudwear.UI;
 
 import android.content.Context;
 import android.view.Gravity;
@@ -24,7 +24,7 @@ public final class ObjectView extends FrameLayout implements WearableListView.On
     public void onCenterPosition(boolean b) {
 
         //Animation example to be ran when the view becomes the centered one
-        text.animate().scaleX(1f).scaleY(1f).alpha(1);
+        text.animate().scaleX(2.5f).scaleY(2.5f).alpha(1);
 
     }
 

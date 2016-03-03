@@ -1,4 +1,8 @@
 <resources>
     <string name="app_name">ARMudwear</string>
     <string name="hello_armud">ARMud</string>
+    <string name="inventory_button">Inv</string>
+    <string name="char_button">Char</string>
+    <string name="obj_button">Obj</string>
+
 </resources>

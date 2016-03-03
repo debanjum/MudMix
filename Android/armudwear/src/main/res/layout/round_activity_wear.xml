@@ -7,6 +7,13 @@
     android:orientation="vertical"
     tools:context=".WearActivity">
 
+
+    <com.androidplot.xy.XYPlot
+        android:id="@+id/statsPlot"
+        android:layout_width="fill_parent"
+        android:layout_height="fill_parent"
+        androidplot.renderMode="use_background_thread" />
+
     <TextView
         android:id="@+id/titleText"
         android:layout_width="match_parent"
@@ -18,13 +25,8 @@
     <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
+        android:id="@+id/frameLayout"
         android:gravity="center_horizontal">
-
-        <ImageView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:id="@+id/scroll_icon"
-            android:layout_gravity="right|center_vertical" />
 
         <android.support.wearable.view.WearableListView
             xmlns:android="http://schemas.android.com/apk/res/android"
@@ -34,6 +36,34 @@
             android:gravity="center_horizontal"
             app:layout_box="all"
             android:layout_gravity="right|center_vertical" />
+
+
+
+        <LinearLayout
+            android:orientation="horizontal"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_gravity="center_horizontal|bottom"
+            android:gravity="center_horizontal">
+            <Button
+                style="?android:attr/buttonStyleSmall"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/obj_button"
+                android:id="@+id/rightListButton"
+                android:layout_gravity="bottom|right"
+                android:gravity="center_horizontal" />
+
+            <Button
+                style="?android:attr/buttonStyleSmall"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/inventory_button"
+                android:id="@+id/leftListButton"
+                android:layout_gravity="center_horizontal|bottom"
+                android:gravity="center_horizontal" />
+
+        </LinearLayout>
 
     </FrameLayout>
 

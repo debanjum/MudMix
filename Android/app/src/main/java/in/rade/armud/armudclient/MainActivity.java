@@ -36,6 +36,9 @@ import android.widget.PopupWindow;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.androidplot.Plot;
+import com.androidplot.xy.LineAndPointFormatter;
+import com.androidplot.xy.XYPlot;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.common.api.GoogleApiClient.ConnectionCallbacks;
@@ -58,6 +61,8 @@ import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.Objects;
+import java.util.Observable;
+import java.util.Observer;
 import java.util.TreeSet;
 
 import in.rade.armud.armudclient.data.PhoneDataLayerListenerService;
@@ -189,7 +194,6 @@ public class MainActivity extends ActionBarActivity implements
                                                       mCurrentMonster = mFocusList.get(position);
                                                   }});
 
-
         // Set labels.
         mLatitudeLabel = getResources().getString(R.string.latitude_label);
         mLongitudeLabel = getResources().getString(R.string.longitude_label);
@@ -295,7 +299,6 @@ public class MainActivity extends ActionBarActivity implements
         mLastUpdateTimeTextView.setText(String.format("%s: %s", mLastUpdateTimeLabel,
                 mLastUpdateTime));
         mLocInfoTextView.setText(String.format("%s", mLocInfoLabel));
-
     }
 
 
@@ -675,4 +678,5 @@ public class MainActivity extends ActionBarActivity implements
             }
         }
     }
+
 }

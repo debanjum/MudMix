@@ -23,7 +23,8 @@
         <activity
             android:name=".ARMudWearActivity"
             android:label="@string/app_name"
-            android:theme="@android:style/Theme.DeviceDefault.Light">
+            android:theme="@android:style/Theme.DeviceDefault.Light"
+            android:hardwareAccelerated="false" >
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

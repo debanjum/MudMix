@@ -48,9 +48,9 @@ public abstract class Globals {
     public static final String RAW_DATA_NAME = "raw_data.txt";
     public static final int FEATURE_SET_CAPACITY = 10000;
 
-    public static final int FOCUS_CONTEXT_CHARACTER = 10;
-    public static final int FOCUS_CONTEXT_OBJECT = 11;
-    public static final int FOCUS_CONTEXT_INVENTORY = 12;
+    public static final int FOCUS_CONTEXT_CHARACTER = 0;
+    public static final int FOCUS_CONTEXT_OBJECT = 1;
+    public static final int FOCUS_CONTEXT_INVENTORY = 2;
     public static final int FOCUS_CONTEXT_IDLE = 13;
     public static final String CONTEXT_KEY = "FOCUS_CONTEXT";
 

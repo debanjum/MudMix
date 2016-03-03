@@ -1,4 +1,4 @@
-package edu.dartmouth.cs.armudwear;
+package edu.dartmouth.cs.armudwear.UI;
 
 import android.content.Context;
 import android.support.wearable.view.WearableListView;
@@ -6,6 +6,8 @@ import android.view.ViewGroup;
 import android.widget.TextView;
 
 import java.util.ArrayList;
+
+import edu.dartmouth.cs.armudwear.R;
 
 /**
  * Created by michael1 on 2/28/16.
