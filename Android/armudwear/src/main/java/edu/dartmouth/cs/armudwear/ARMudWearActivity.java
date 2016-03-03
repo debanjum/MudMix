@@ -64,6 +64,7 @@ WearableListView.OnCentralPositionChangedListener {
     private String mCurrentLocation;
     private int mHealthPoints;
     private int mMaxHP;
+    private int mExperiencePoints;
     private int mMagicPoints;
     private int mGoldPieces;
     private int mLevel;
@@ -108,8 +109,7 @@ WearableListView.OnCentralPositionChangedListener {
                         new View.OnClickListener() {
                             @Override
                             public void onClick(View v) {
-                                mCurrentFocusContext = (mCurrentFocusContext + 1) % 3;
-                                onClickContextSwitch();
+                                onClickContextSwitch((mCurrentFocusContext + 1) % 3);
                             }
                         });
                 mRightListButton.setOnClickListener(
@@ -117,8 +117,7 @@ WearableListView.OnCentralPositionChangedListener {
                             @Override
                             public void onClick(View v) {
                                 //(a % b + b) % b : modulus
-                                mCurrentFocusContext = ((mCurrentFocusContext - 1) % 3 + 3) % 3;
-                                onClickContextSwitch();
+                                onClickContextSwitch(((mCurrentFocusContext - 1) % 3 + 3) % 3);
                             }
                         });
             }
@@ -146,9 +145,10 @@ WearableListView.OnCentralPositionChangedListener {
         vibrator = (Vibrator) getSystemService(VIBRATOR_SERVICE);
     }
 
-    public void onClickContextSwitch() {
+    public void onClickContextSwitch(int newFocusContext) {
+        switchFocusContext(newFocusContext);
+        mCurrentFocusContext = newFocusContext;
         updateFocusArray(mCurrentFocusContext);
-        switchFocusContext(mCurrentFocusContext);
         //(a % b + b) % b: modulus
         mLeftListButton.setText(mButtonLabels[(mCurrentFocusContext + 1) % 3]);
         mRightListButton.setText(mButtonLabels[((mCurrentFocusContext - 1) % 3 + 3) % 3]);
@@ -176,12 +176,6 @@ WearableListView.OnCentralPositionChangedListener {
                     Log.d("command receiver", "adding character");
                     if (!mCharArray.contains(obj)) {
                         mCharArray.add(obj);
-                        if (mCurrentFocusObject.equals("")) {
-                            mCurrentFocusObject = obj;
-                            if (mCurrentFocusContext != Globals.FOCUS_CONTEXT_CHARACTER || mFocusIsIdle) {
-                                switchFocusContext(Globals.FOCUS_CONTEXT_CHARACTER);
-                            }
-                        }
                         updateFocusArray(Globals.FOCUS_CONTEXT_CHARACTER);
                     }
                     break;
@@ -224,12 +218,17 @@ WearableListView.OnCentralPositionChangedListener {
                     }
                     statsPlot.redraw();
                     break;
+                case "xp":
+                    mExperiencePoints = Integer.parseInt(obj);
+                    mExperienceSeries.updateValue(mExperiencePoints);
+                    statsPlot.redraw();
+                    break;
                 case "level:":
                     mLevel = Integer.parseInt(obj);
                     break;
                 case "LOC":
                     mCurrentLocation = obj;
-                    onClickContextSwitch();
+                    onClickContextSwitch(mCurrentFocusContext);
             }
         }
     };
@@ -240,6 +239,7 @@ WearableListView.OnCentralPositionChangedListener {
      * Depending on which kind of listview is shown to the user
      */
     private void switchFocusContext(int focusContext) {
+        Log.d("Focus Context-start", Integer.toString(mCurrentFocusContext));
         if (mCurrentFocusContext == focusContext && !mFocusIsIdle){
             return;
         }
@@ -253,8 +253,7 @@ WearableListView.OnCentralPositionChangedListener {
             startService(mClassifyIntent);
             mFocusIsIdle = false;
         }
-        mCurrentFocusContext = focusContext;
-        Log.d("Focus Context", Integer.toString(mCurrentFocusContext));
+        Log.d("Focus Context-end", Integer.toString(mCurrentFocusContext));
     }
 
 
@@ -263,15 +262,13 @@ WearableListView.OnCentralPositionChangedListener {
      * it is called when the server updates the objects in the
      * user's current environment
      */
-    private int updateFocusArray(int focusContext) {
-        int returnValue = focusContext;
+    private void updateFocusArray(int focusContext) {
         if (mCurrentFocusContext == focusContext) {
             mFocusArray.clear();
             switch (focusContext)
             {
                 case Globals.FOCUS_CONTEXT_CHARACTER:
                     mFocusArray.addAll(mCharArray);
-                    mFocusArray.addAll(mMobArray);
                     break;
                 case Globals.FOCUS_CONTEXT_OBJECT:
                     mFocusArray.addAll(mObjArray);
@@ -293,7 +290,6 @@ WearableListView.OnCentralPositionChangedListener {
             ObjectAdapter mAdapter = new ObjectAdapter(this, mFocusArray);
             mFocusListView.setAdapter(mAdapter);
         }
-        return returnValue;
     }
 
     // mCommandReceiver will be called whenever an Intent
@@ -325,16 +321,16 @@ WearableListView.OnCentralPositionChangedListener {
                     break;
             }
             String obj = mCurrentFocusObject;
-            if (obj.equals("") && !mCharArray.isEmpty()) {
-                obj = mCharArray.get(0);
-            }
-
-            if (mGoogleApiClient.isConnected()) {
-                Log.d("Send command to phone", command + " " + obj);
-                new SendMessageToPhoneThread(Globals.COMMAND_PATH, command + " " + obj).start();
+            if (!mCurrentFocusObject.equals("")) {
+                if (mGoogleApiClient.isConnected()) {
+                    Log.d("Send command to phone", command + " " + obj);
+                    new SendMessageToPhoneThread(Globals.COMMAND_PATH, command + " " + obj).start();
+                } else {
+                    Log.d("Send command failure", "not connected to phone");
+                    mGoogleApiClient.connect();
+                }
             } else {
-                Log.d("Send command failure", "not connected to phone");
-                mGoogleApiClient.connect();
+                Log.d("Command Failure", "No Focus Object");
             }
         }
     };
@@ -420,6 +416,7 @@ WearableListView.OnCentralPositionChangedListener {
     @Override
     public void onCentralPositionChanged(int i) {
         mCurrentFocusObject = mFocusArray.get(i);
+        Log.d("CentralPositionChanged", mCurrentFocusObject);
     }
 
 
@@ -476,9 +473,9 @@ WearableListView.OnCentralPositionChangedListener {
         statsPlot.setPlotPadding(0, 0, 0, 0);
 
 
-        StatsSeries baseline = new StatsSeries(30, 30, 30);
-        mHealthSeries = new StatsSeries(100, 29, 100);
-        mExperienceSeries = new StatsSeries(45, 27, 100);
+        StatsSeries baseline = new StatsSeries(30, 30, 30, true);
+        mHealthSeries = new StatsSeries(100, 100, 29);
+        mExperienceSeries = new StatsSeries(0, 100, 27);
         mMaxHP = 100;
 
         LineAndPointFormatter formatBase = new LineAndPointFormatter(Color.WHITE,null,null,null);

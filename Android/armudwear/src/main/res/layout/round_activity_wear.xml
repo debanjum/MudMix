@@ -30,7 +30,7 @@
 
         <android.support.wearable.view.WearableListView
             xmlns:android="http://schemas.android.com/apk/res/android"
-            android:layout_width="181dp"
+            android:layout_width="214dp"
             android:layout_height="match_parent"
             android:id="@+id/focusListView"
             android:gravity="center_horizontal"
@@ -38,12 +38,11 @@
             android:layout_gravity="right|center_vertical" />
 
 
-
         <LinearLayout
             android:orientation="horizontal"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:layout_gravity="center_horizontal|bottom"
+            android:layout_gravity="left|center_vertical"
             android:gravity="center_horizontal">
             <Button
                 style="?android:attr/buttonStyleSmall"

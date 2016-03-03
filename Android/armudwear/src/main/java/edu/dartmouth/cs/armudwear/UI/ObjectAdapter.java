@@ -29,7 +29,7 @@ public class ObjectAdapter extends WearableListView.Adapter {
     @Override
     public void onBindViewHolder(WearableListView.ViewHolder viewHolder, final int position) {
         ObjectView objectView = (ObjectView) viewHolder.itemView;
-        final String item = mDataset.get(position);
+        final String item = position + ".            " + mDataset.get(position);
 
         TextView textView = (TextView) objectView.findViewById(R.id.text);
         textView.setText(item);

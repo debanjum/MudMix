@@ -16,6 +16,14 @@ public class StatsSeries implements XYSeries {
         this.maxValue = maxValue;
     }
 
+    public StatsSeries(double initialValue, double maxValue, double radius, boolean baseline) {
+        this.value = initialValue;
+        this.radius = radius;
+        this.maxValue = maxValue;
+        this.baseAngle = 0;
+        this.maxAngleDelta = 2 * Math.PI;
+    }
+
     @Override
     public String getTitle() {
         return "";
