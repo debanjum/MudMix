@@ -146,7 +146,11 @@ public class SensorsService extends Service implements SensorEventListener {
                         }
 
                         if (Globals.NO_COMMAND_DETECTED != command_index) {
+                            Log.d("SensorsService", "Command detected");
                             sendMessage(command_index);
+                        } else {
+                            Log.d("SensorsService", "No command detected");
+
                         }
                     }
                 } catch (Exception e) {

@@ -91,8 +91,7 @@ WearableListView.OnCentralPositionChangedListener {
         setContentView(R.layout.activity_armud_wear);
         setAmbientEnabled();
 
-        final WearableListView.OnCentralPositionChangedListener listener = this;
-        final Context context = this;
+        final WearableListView.OnCentralPositionChangedListener positionChangedListener = this;
         mContainerView = (WatchViewStub) findViewById(R.id.watch_view_stub);
         mContainerView.setOnLayoutInflatedListener(new WatchViewStub.OnLayoutInflatedListener() {
             @Override
@@ -101,7 +100,14 @@ WearableListView.OnCentralPositionChangedListener {
                 mTitleView = (TextView) stub.findViewById(R.id.titleText);
                 statsPlot = (XYPlot) stub.findViewById(R.id.statsPlot);
                 updateFocusArray(Globals.FOCUS_CONTEXT_CHARACTER);
-                mFocusListView.addOnCentralPositionChangedListener(listener);
+                mFocusListView.addOnCentralPositionChangedListener(positionChangedListener);
+                mFocusListView.setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View v) {
+                        // put your onClick logic here
+                        new SendMessageToPhoneThread(Globals.COMMAND_PATH, "look " + mCurrentFocusObject).start();
+                    }
+                });
                 createStatsDisplay();
                 mLeftListButton = (Button) stub.findViewById(R.id.leftListButton);
                 mRightListButton = (Button) stub.findViewById(R.id.rightListButton);
@@ -228,7 +234,7 @@ WearableListView.OnCentralPositionChangedListener {
                     mLevel = Integer.parseInt(obj);
                     break;
                 case "LOC":
-                    if (!mCurrentLocation.equals(obj)) {
+                    if (mCurrentLocation != null && !mCurrentLocation.equals(obj)) {
                         mCurrentLocation = obj;
                         onClickContextSwitch(mCurrentFocusContext);
                     }
@@ -248,12 +254,14 @@ WearableListView.OnCentralPositionChangedListener {
         }
         if (!mFocusIsIdle) {
             stopService(mClassifyIntent);
+            Log.d("Classify Service", "Stop" + mCurrentFocusContext);
             mFocusIsIdle = true;
         }
         if (focusContext != Globals.FOCUS_CONTEXT_IDLE) {
             mClassifyIntent = new Intent(this, SensorsService.class);
             mClassifyIntent.putExtra(Globals.CONTEXT_KEY, focusContext);
             startService(mClassifyIntent);
+            Log.d("Classify Service", "Start" + focusContext);
             mFocusIsIdle = false;
         }
         Log.d("Focus Context-end", Integer.toString(mCurrentFocusContext));
@@ -312,7 +320,7 @@ WearableListView.OnCentralPositionChangedListener {
                     command = "attack";
                     break;
                 case Globals.COMMAND_ID_CLAP:
-                    command = "default";
+                    command = "defact";
                     break;
                 case Globals.COMMAND_ID_DROP:
                     command = "drop";
@@ -379,6 +387,12 @@ WearableListView.OnCentralPositionChangedListener {
         super.onExitAmbient();
     }
 
+    @Override
+    public void onDestroy() {
+        stopService(mClassifyIntent);
+        super.onDestroy();
+    }
+
     private void updateDisplay() {
         if (isAmbient()) {
             mContainerView.setBackgroundColor(getResources().getColor(android.R.color.black));
@@ -424,7 +438,6 @@ WearableListView.OnCentralPositionChangedListener {
         Log.d("CentralPositionChanged", mCurrentFocusObject);
     }
 
-
     class SendMessageToPhoneThread extends Thread {
         String path;
         String message;
@@ -436,13 +449,14 @@ WearableListView.OnCentralPositionChangedListener {
         }
 
         public void run() {
+            Log.i("SendMessageToPhone", "message: " + message);
             NodeApi.GetConnectedNodesResult nodes = Wearable.NodeApi.getConnectedNodes(mGoogleApiClient).await();
             for(Node node : nodes.getNodes()) {
                 MessageApi.SendMessageResult result = Wearable.MessageApi.sendMessage(mGoogleApiClient, node.getId(), path, message.getBytes()).await();
                 if(!result.getStatus().isSuccess()){
-                    Log.e("test", "error");
+                    Log.e("SendMessageToPhone", "error");
                 } else {
-                    Log.i("test", "success!! sent to: " + node.getDisplayName());
+                    Log.i("SendMessageToPhone", "success!! sent to: " + node.getDisplayName());
                 }
             }
         }

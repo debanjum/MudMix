@@ -27,20 +27,16 @@ import android.os.Bundle;
 import android.speech.tts.TextToSpeech;
 import android.support.v4.content.LocalBroadcastManager;
 import android.support.v7.app.ActionBarActivity;
+import android.support.wearable.view.BoxInsetLayout;
+import android.text.Html;
 import android.util.Log;
 import android.view.View;
-import android.widget.AdapterView;
-import android.widget.ArrayAdapter;
 import android.widget.Button;
-import android.widget.ListAdapter;
+import android.widget.EditText;
 import android.widget.ListView;
-import android.widget.PopupWindow;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import com.androidplot.Plot;
-import com.androidplot.xy.LineAndPointFormatter;
-import com.androidplot.xy.XYPlot;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.common.api.GoogleApiClient.ConnectionCallbacks;
@@ -48,7 +44,6 @@ import com.google.android.gms.common.api.GoogleApiClient.OnConnectionFailedListe
 import com.google.android.gms.location.LocationListener;
 import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationServices;
-import com.google.android.gms.wearable.DataMap;
 import com.google.android.gms.wearable.MessageApi;
 import com.google.android.gms.wearable.Node;
 import com.google.android.gms.wearable.NodeApi;
@@ -63,10 +58,7 @@ import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
-import java.util.Objects;
-import java.util.Observable;
-import java.util.Observer;
-import java.util.TreeSet;
+import java.util.Random;
 
 import in.rade.armud.armudclient.data.PhoneDataLayerListenerService;
 import in.rade.armud.armudclient.websocket.WebSocketClient;
@@ -81,7 +73,7 @@ public class MainActivity extends ActionBarActivity implements
     /**
      * The desired interval for location updates. Inexact. Updates may be more or less frequent.
      */
-    public static final long UPDATE_INTERVAL_IN_MILLISECONDS = 30000;
+    public static final long UPDATE_INTERVAL_IN_MILLISECONDS = 5000;
     public static int count = 0;
 
     /**
@@ -112,14 +104,12 @@ public class MainActivity extends ActionBarActivity implements
     protected Location mCurrentLocation;
 
     // UI Widgets.
-    protected Button mStartUpdatesButton;
-    protected Button mStopUpdatesButton;
-    protected Button mAttackButton;
+    protected Button mSubmitNameButton;
     protected TextView mLastUpdateTimeTextView;
     protected TextView mLatitudeTextView;
     protected TextView mLongitudeTextView;
     protected TextView mLocInfoTextView;
-    protected ListView mFocusListView;
+    protected EditText mCharacterNameEdit;
 
     // Labels.
     protected String mLatitudeLabel;
@@ -127,29 +117,18 @@ public class MainActivity extends ActionBarActivity implements
     protected String mLastUpdateTimeLabel;
     protected String mLocInfoLabel;
 
-
-    // messages from armud server
-    protected ArrayList<String> mMessageHistory;
-
-    // communication with android wear
-
-
-    protected String mCurrentMonster;
-    protected TreeSet<String> mCurrentObjectSet;
-    protected TreeSet<String> mCurrentCharSet;
-    protected ArrayList<String> mFocusList;
-    protected ListAdapter mFocusAdapter;
     /**
      * Tracks the status of the location updates request. Value changes when the user presses the
      * Start Updates and Stop Updates buttons.
      */
     protected Boolean mRequestingLocationUpdates;
     protected Boolean mConnected;
+    protected Boolean amWaitingOnSubmit;
     protected Boolean mLoggedIn;
+    protected String mLoginString;
 
-    protected static int MESSAGE_MAX_LENGTH = 50;
-    protected static int CHARACTER_T = 1;
-    protected static int OBJECT_T = 2;
+    protected SharedPreferences mPrefs;
+
 
     protected static final float mAccuracyThresh = 30; // only update if less than 15 meter accuracy
 
@@ -171,44 +150,24 @@ public class MainActivity extends ActionBarActivity implements
         setContentView(R.layout.main_activity);
 
         // Locate the UI widgets.
-        mStartUpdatesButton = (Button) findViewById(R.id.start_updates_button);
-        mStopUpdatesButton = (Button) findViewById(R.id.stop_updates_button);
-        mAttackButton = (Button) findViewById(R.id.attackButton);
         mLatitudeTextView = (TextView) findViewById(R.id.latitude_text);
         mLongitudeTextView = (TextView) findViewById(R.id.longitude_text);
         mLastUpdateTimeTextView = (TextView) findViewById(R.id.last_update_time_text);
         mLocInfoTextView = (TextView) findViewById(R.id.locinfo_text);
-
-        //focus lists
-        mCurrentCharSet = new TreeSet<String>();
-        mFocusListView = (ListView) findViewById(R.id.focusListView);
-        mFocusList = new ArrayList<String>();
-        ArrayAdapter<String> adapter = new ArrayAdapter<String>(this,
-                android.R.layout.simple_list_item_1, android.R.id.text1,
-                mFocusList.toArray(new String[mFocusList.size()]));
-        mFocusListView.setAdapter(adapter);
-        mFocusListView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
-
-                                                  @Override
-                                                  public void onItemClick(AdapterView<?> parent,
-                                                                          View view,
-                                                                          int position,
-                                                                          long id) {
-                                                      // Get clicked project.
-                                                      mCurrentMonster = mFocusList.get(position);
-                                                  }});
+        mSubmitNameButton = (Button) findViewById(R.id.enterButton);
+        mCharacterNameEdit = (EditText) findViewById(R.id.editName);
 
         // Set labels.
         mLatitudeLabel = getResources().getString(R.string.latitude_label);
         mLongitudeLabel = getResources().getString(R.string.longitude_label);
         mLastUpdateTimeLabel = getResources().getString(R.string.last_update_time_label);
 
-        mRequestingLocationUpdates = false;
+        mRequestingLocationUpdates = true;
         mLastUpdateTime = "";
         mLocInfoLabel = "";
         mConnected = false;
-
-        mCurrentMonster = "";
+        amWaitingOnSubmit = false;
+        mLoggedIn = false;
 
         // Add the project titles to display in a list for the listview adapter.
 
@@ -218,8 +177,6 @@ public class MainActivity extends ActionBarActivity implements
         // Initialise TTS engine
         tts = new TextToSpeech(this, this);
 
-        //Login to MUD
-        logintoMUD();
 
         // Update values using data stored in the Bundle.
         updateValuesFromBundle(savedInstanceState);
@@ -233,6 +190,17 @@ public class MainActivity extends ActionBarActivity implements
                 new IntentFilter(Globals.COMMAND_PATH));
 
         startService(new Intent(this, PhoneDataLayerListenerService.class));
+
+        client.connect();
+
+        mPrefs = getPreferences(MODE_PRIVATE);
+        if (mPrefs.contains("LOGIN_STRING")) {
+            mLoginString = mPrefs.getString("LOGIN_STRING", "connect test test");
+            logintoMUD();
+            mSubmitNameButton.setVisibility(View.GONE);
+            mCharacterNameEdit.setVisibility(View.GONE);
+            mLatitudeTextView.setText("");
+        }
     }
 
 
@@ -257,49 +225,31 @@ public class MainActivity extends ActionBarActivity implements
         }
     };
 
-    public void attackButtonHandler(View view) {
-        if (Objects.equals(mCurrentMonster, "")) {
-            client.send("Attack " + mCurrentMonster);
-        }
-    }
 
 
     /**
      * Handles the Start Updates button and requests start of location updates. Does nothing if
      * updates have already been requested.
      */
-    public void startUpdatesButtonHandler(View view) {
-        if (!mRequestingLocationUpdates) {
-            mRequestingLocationUpdates = true;
-            setButtonsEnabledState();
-            startLocationUpdates();
-        }
-    }
+    public void submitNameButtonHandler(View view) {
+        String name = mCharacterNameEdit.getText().toString();
+        boolean hasNonAlpha = name.matches("^.*[^a-zA-Z0-9 ].*$");
 
-    /**
-     * Handles the Stop Updates button, and requests removal of location updates. Does nothing if
-     * updates were not previously requested.
-     */
-    public void stopUpdatesButtonHandler(View view) {
-        if (mRequestingLocationUpdates) {
-            mRequestingLocationUpdates = false;
-            setButtonsEnabledState();
-            stopLocationUpdates();
-        }
-    }
-
-    /**
-     * Ensures that only one button is enabled at any time. The Start Updates button is enabled
-     * if the user is not requesting location updates. The Stop Updates button is enabled if the
-     * user is requesting location updates.
-     */
-    private void setButtonsEnabledState() {
-        if (mRequestingLocationUpdates) {
-            mStartUpdatesButton.setEnabled(false);
-            mStopUpdatesButton.setEnabled(true);
+        if (name == null || name.equals("")) {
+            mCharacterNameEdit.setText("Please Enter a Name!");
+        } else if (hasNonAlpha) {
+            mCharacterNameEdit.setText("Name must be alphanumeric!");
+        } else if (name.length() > 12) {
+            mCharacterNameEdit.setText("Name must be  < 12 chars");
         } else {
-            mStartUpdatesButton.setEnabled(true);
-            mStopUpdatesButton.setEnabled(false);
+            Random r = new Random();
+            int password = r.nextInt(10000 - 100 + 1) + 100;
+            String createString = "create " + name + " " + password;
+            client.send(createString);
+            amWaitingOnSubmit = true;
+
+            mLoginString = "connect " + name + " " + password;
+            Log.d("login init", mLoginString);
         }
     }
 
@@ -307,13 +257,15 @@ public class MainActivity extends ActionBarActivity implements
      * Updates the latitude, the longitude, and the last location time in the UI.
      */
     private void updateUI() {
-        mLatitudeTextView.setText(String.format("%s: %f", mLatitudeLabel,
-                mCurrentLocation.getLatitude()));
-        mLongitudeTextView.setText(String.format("%s: %f", mLongitudeLabel,
-                mCurrentLocation.getLongitude()));
-        mLastUpdateTimeTextView.setText(String.format("%s: %s", mLastUpdateTimeLabel,
-                mLastUpdateTime));
-        mLocInfoTextView.setText(String.format("%s", mLocInfoLabel));
+        if (null != mCurrentLocation && mLoggedIn) {
+            mLatitudeTextView.setText(String.format("%s: %f", mLatitudeLabel,
+                    mCurrentLocation.getLatitude()));
+            mLongitudeTextView.setText(String.format("%s: %f", mLongitudeLabel,
+                    mCurrentLocation.getLongitude()));
+            mLastUpdateTimeTextView.setText(String.format("%s: %s", mLastUpdateTimeLabel,
+                    mLastUpdateTime));
+            mLocInfoTextView.setText(String.format("%s", mLocInfoLabel));
+        }
     }
 
 
@@ -418,18 +370,10 @@ public class MainActivity extends ActionBarActivity implements
                 e.printStackTrace();
             }
         }
-        //TODO login string generator
 
-        SharedPreferences prefs = getPreferences(MODE_PRIVATE);
-        /*
-        if (!prefs.contains("LOGIN_STRING")) {
-            PopupWindow window = new PopupWindow(new LoginView(this),100,200, true);
-            window.showAsDropDown(findViewById(R.id.scrollView));
-        }*/
-        final String loginString = prefs.getString("LOGIN_STRING", "connect test test");
-        Log.d(WEBSOCKET_TAG, loginString);
-
-        client.send(loginString);
+        Log.d(WEBSOCKET_TAG, mLoginString);
+        client.send(mLoginString);
+        mLoggedIn = true;
     }
 
     /**
@@ -451,11 +395,28 @@ public class MainActivity extends ActionBarActivity implements
         if (splitMessage[0].equals("DATA")) {
             Log.d(WEBSOCKET_TAG, "Sending message to watch");
             new SendMessageToWearThread(Globals.ARMUD_DATA_PATH, splitMessage[1] + "," + splitMessage[2]).start();
-        } else{
-            //TODO TEXT TO SPEECH
+        } else {
             //keep in mind that the message either can't have commas or the splitMessage array needs to be reworked
-            speech(splitMessage[0]);
-            mLocInfoLabel = splitMessage[0];
+            if (amWaitingOnSubmit) {
+                if (!"Sorry".equals(splitMessage[0])) {
+                    SharedPreferences.Editor edit = mPrefs.edit();
+                    edit.putString("LOGIN_STRING", mLoginString);
+                    while (!edit.commit()) {
+                        Log.d("login init", "commit failed, trying again");
+                    }
+                    logintoMUD();
+                    mSubmitNameButton.setVisibility(View.GONE);
+                    mCharacterNameEdit.setVisibility(View.GONE);
+                }
+                amWaitingOnSubmit = false;
+            }
+            String message = "";
+            for (int i = 0 ; i < splitMessage.length; i++) {
+                message = i == 0 ? splitMessage[i] : message + ", " + splitMessage[i];
+            }
+            message = Html.fromHtml(message).toString();
+            speech(message);
+            mLocInfoLabel = mLocInfoLabel  + "\n ======== \n" + message;
         }
     }
 
@@ -470,21 +431,6 @@ public class MainActivity extends ActionBarActivity implements
         }
     }
 
-    private void addToFocusables(int type, String objName) {
-        Log.d(WEBSOCKET_TAG, "adding new focusable object");
-        mFocusList.add(objName);
-        if (type == CHARACTER_T) {
-            mCurrentCharSet.add(objName);
-        }
-    }
-
-    private void removeFromFocusables(int type, String objName){
-        Log.d(WEBSOCKET_TAG, "removing focusable object");
-        if (!mFocusList.isEmpty()) {
-            mCurrentCharSet.remove(objName);
-            mFocusList.remove(objName);
-        }
-    }
 
 
 /**
@@ -520,7 +466,6 @@ public class MainActivity extends ActionBarActivity implements
             if (savedInstanceState.keySet().contains(REQUESTING_LOCATION_UPDATES_KEY)) {
                 mRequestingLocationUpdates = savedInstanceState.getBoolean(
                         REQUESTING_LOCATION_UPDATES_KEY);
-                setButtonsEnabledState();
             }
 
             // Update the value of mCurrentLocation from the Bundle and update the UI to show the
