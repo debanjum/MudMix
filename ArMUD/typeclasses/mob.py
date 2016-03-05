@@ -391,8 +391,12 @@ class Mob(tut_objects.TutorialObject):
                 # not a magic weapon - divide away magic resistance
                 damage /= self.db.damage_resistance
                 attacker.msg(self.db.weapon_ineffective_msg)
+                print "1"
             else:
                 self.location.msg_contents(self.db.hit_msg)
+                print "2"
+
+            print "3"
             self.db.HP -= damage
 
         # analyze the result

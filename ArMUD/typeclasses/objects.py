@@ -55,6 +55,7 @@ class Vegetable(TutorialObject):
         super(Vegetable, self).at_object_creation()
         self.db.heal = 1.0       # increases HP
         self.db.strength = 1.0   # increases STR
+        self.db.defact = "eat"   # default action associated with Vegetable
 
     def reset(self):
         """
@@ -167,6 +168,7 @@ class WeaponAttack(Command):
         if not self.args:
             self.caller.msg("Who do you attack?")
             return
+
         target = self.caller.search(self.args.strip())
         if not target:
             return
@@ -184,7 +186,7 @@ class WeaponAttack(Command):
         elif cmdstring in ("slash", "chop"):
             hit = float(self.obj.db.hit)   # un modified due to slash
             damage = self.obj.db.damage  # un modified due to slash
-            string = "You slashes with a %s. " % self.obj.key
+            string = "You slash with a %s. " % self.obj.key
             tstring = "%s slashes at you with a %s. " % (self.caller.key, self.obj.key)
             ostring = "%s slashes at %s with a %s. " % (self.caller.key, target.key, self.obj.key)
             self.caller.db.combat_parry_mode = False
@@ -203,12 +205,14 @@ class WeaponAttack(Command):
             self.caller.msg(string + "{gIt's a hit!{n")
             target.msg(tstring + "{rIt's a hit!{n")
             self.caller.location.msg_contents(ostring + "It's a hit!", exclude=[target,self.caller])
-
+            print "0"
             # call enemy hook
             if hasattr(target, "at_hit"):
                 # should return True if target is defeated, False otherwise.
+                print "0.5"
                 return target.at_hit(self.obj, self.caller, damage)
             elif target.db.HP:
+                print "3.5"
                 target.db.HP -= damage
                 target.msg("DATA,health,%d" % target.db.HP)
             else:
@@ -237,6 +241,7 @@ class Weapon(TutorialObject):
       damage - base damage given (modified by hit success and
                type of attack) (0-10)
     """
+
     def at_object_creation(self):
         "Called at first creation of the object"
         super(Weapon, self).at_object_creation()
@@ -244,6 +249,7 @@ class Weapon(TutorialObject):
         self.db.parry = 4.0  # parry chance
         self.db.damage = 5.0
         self.db.magic = False
+        self.locks.add("call:attr(equip, %s)" % self.dbref)
         self.cmdset.add_default(CmdSetWeapon, permanent=True)
 
     def reset(self):

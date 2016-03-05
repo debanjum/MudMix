@@ -14,7 +14,11 @@ class Npc(Character):
         Called only when first created
         """
         self.db.attacking = None
-        pass
+        self.db.full_HP = 100
+        self.db.HP = 30          # as npc is dying
+        self.db.STR = 1
+        self.db.combat = 2
+
 
     def at_char_entered(self, character):
         """
@@ -31,7 +35,7 @@ class Npc(Character):
             self.db.last_attack=time()
 
         else:
-            self.execute_cmd("say Greetings, %s!"% character)
+            self.execute_cmd("say Ahh, the pain! I need water. Help me %s!"% character)
 
 
     def at_tick(self):

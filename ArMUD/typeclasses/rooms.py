@@ -1,7 +1,7 @@
 """
 Room
 
-Rooms are simple containers that has no location of their own.
+Rooms are simple containers that are to gps metadata of their own.
 
 """
 
@@ -38,37 +38,55 @@ class Room(DefaultRoom):
             if utils.inherits_from(obj, Character):
                 # Cause the character to look around
                 obj.execute_cmd('look')
-                # Any NPCs in the room ?
+
                 for item in self.contents:
+                    # Any NPCs in the room ?
                     if utils.inherits_from(item, Npc):
                         # Notify NPCs that a PC entered the room
                         item.at_char_entered(obj)
                         tickerhandler.add(item,1)
+                    
+                    # if item in room not self
+                    if item.dbref != obj.dbref:
+                        # if item is of class Character
+                        if utils.inherits_from(item, Character):
+                            obj.msg("DATA,char_add," + item.name + item.dbref)
+                            item.msg("DATA,char_add," + obj.name + obj.dbref)
+                        # else if item is of class Mob
+                        elif utils.inherits_from(item, Mob):
+                            obj.msg("DATA,char_add," + item.name + item.dbref)
+                        # else if item is of class Npc
+                        elif utils.inherits_from(item, Npc):
+                            obj.msg("DATA,char_add," + item.name + item.dbref)
+                        # else (an object)
+                        else:
+                            obj.msg("DATA,obj_add," + item.name + item.dbref)
 
-                    if utils.inherits_from(item, Character) and item.dbref != obj.dbref:
-                        obj.msg("DATA,char_add," + item.name + item.dbref)
-			item.msg("DATA,char_add," + obj.name + obj.dbref)
-                    if not utils.inherits_from(item, Character):
-                        obj.msg("DATA,obj_add," + item.name + item.dbref)
-
-
-                    if utils.inherits_from(item, Mob) and item.dbref != obj.dbref:
-                        obj.msg("DATA,char_add," + item.name + item.dbref)
 
 
     def at_object_leave(self, obj, target_location):
         if utils.inherits_from(obj, Character):
             for item in self.contents:
-                if utils.inherits_from(item, Character) and item.dbref != obj.dbref:
-                    item.msg("DATA,char_remove," + obj.name + obj.dbref)
-                if utils.inherits_from(item, Mob) and item.dbref != obj.dbref:
-                    item.msg("DATA,char_remove," + obj.name + obj.dbref)
-                    if not utils.inherits_from(item, Character):
+                # if item in room not self
+                if item.dbref != obj.dbref:
+                    # if item is of class Character
+                    if utils.inherits_from(item, Character):
+                        obj.msg("DATA,char_remove," + item.name + item.dbref)
+                        item.msg("DATA,char_remove," + obj.name + obj.dbref)
+                    # else if item is of class Mob
+                    elif utils.inherits_from(item, Mob):
+                        item.msg("DATA,char_remove," + obj.name + obj.dbref)
+                    # else if item is of class Npc
+                    elif utils.inherits_from(item, Npc):
+                        obj.msg("DATA,char_add," + item.name + item.dbref)
+                    # else (an object)
+                    else:
                         obj.msg("DATA,obj_remove," + item.name + item.dbref)
 
 
-
         if utils.inherits_from(obj, Npc): # An NPC has left
+            pass
+        elif utils.inherits_from(obj, Mob): # A Mob has left
             pass
         else:
             # Else if a PC has left the room

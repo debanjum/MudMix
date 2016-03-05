@@ -18,11 +18,13 @@ def check_defeat(character):
 def add_XP(character, amount):
     "Add XP to character, tracking level increases."
     character.db.XP += amount
+    character.msg("DATA,xp,%i" % character.db.XP)
     if character.db.XP >= (character.db.level + 1) ** 2:
         character.db.level += 1
         character.db.STR += 1
         character.db.combat += 2
         character.msg("You are now level %i!" % character.db.level)
+        character.msg("DATA,level,%i" % character.db.level)
 
 def skill_combat(*args):
     """
@@ -92,6 +94,8 @@ def create_room(room_name, character, roomtype_key="Generic", roomtype_value="Ge
         logger.log_info("Room Type Updated to %s: %s" % (room.db.roomtype_key,room.db.roomtype_value))
 
     # teleport character to room, if not already in room
-    if character.location!=room_name:
-        character.move_to(room, quiet=True)                            
-        logger.log_info("User entered %s" % room)
+    if character.location.name != room_name:
+        logger.log_info("Character location: |%s|" % cl)
+        logger.log_info("User entered |%s|" % room_name)
+        character.msg("You've entered %s" % room_name)
+        character.move_to(room, quiet=True)               
