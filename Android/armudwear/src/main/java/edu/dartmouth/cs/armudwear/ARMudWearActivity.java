@@ -6,6 +6,7 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.Bundle;
 import android.os.Vibrator;
+import android.provider.Settings;
 import android.support.v4.content.LocalBroadcastManager;
 import android.support.wearable.activity.WearableActivity;
 import android.support.wearable.view.WatchViewStub;
@@ -148,6 +149,7 @@ WearableListView.OnCentralPositionChangedListener {
                 new IntentFilter(Globals.COMMAND_UPDATED));
 
         startService(new Intent(this, WatchDataLayerListenerService.class));
+        startService(new Intent(this, SensorsService.class));
 
         vibrator = (Vibrator) getSystemService(VIBRATOR_SERVICE);
     }
@@ -232,6 +234,7 @@ WearableListView.OnCentralPositionChangedListener {
                     break;
                 case "level:":
                     mLevel = Integer.parseInt(obj);
+                    mExperienceSeries.updateMaxValue((int) Math.pow(mLevel + 1, 2));
                     break;
                 case "LOC":
                     if (mCurrentLocation != null && !mCurrentLocation.equals(obj)) {
@@ -248,23 +251,25 @@ WearableListView.OnCentralPositionChangedListener {
      * Depending on which kind of listview is shown to the user
      */
     private void switchFocusContext(int focusContext) {
-        Log.d("Focus Context-start", Integer.toString(mCurrentFocusContext));
+        Log.d("Focus Context", "End " + Integer.toString(mCurrentFocusContext));
         if (mCurrentFocusContext == focusContext && !mFocusIsIdle){
             return;
         }
+        /*
         if (!mFocusIsIdle) {
             stopService(mClassifyIntent);
             Log.d("Classify Service", "Stop" + mCurrentFocusContext);
             mFocusIsIdle = true;
-        }
-        if (focusContext != Globals.FOCUS_CONTEXT_IDLE) {
-            mClassifyIntent = new Intent(this, SensorsService.class);
-            mClassifyIntent.putExtra(Globals.CONTEXT_KEY, focusContext);
-            startService(mClassifyIntent);
-            Log.d("Classify Service", "Start" + focusContext);
-            mFocusIsIdle = false;
-        }
-        Log.d("Focus Context-end", Integer.toString(mCurrentFocusContext));
+        } */
+        Intent intent = new Intent(Globals.CONTEXT_KEY);
+        intent.putExtra(Globals.CONTEXT_KEY, focusContext);
+        LocalBroadcastManager.getInstance(this).sendBroadcast(intent);
+        /*
+        mClassifyIntent = new Intent(this, SensorsService.class);
+        mClassifyIntent.putExtra(Globals.CONTEXT_KEY, focusContext);
+        startService(mClassifyIntent); */
+        Log.d("Classify Service", "Start" + focusContext);
+        mFocusIsIdle = false;
     }
 
 
@@ -389,7 +394,6 @@ WearableListView.OnCentralPositionChangedListener {
 
     @Override
     public void onDestroy() {
-        stopService(mClassifyIntent);
         super.onDestroy();
     }
 
@@ -514,7 +518,6 @@ WearableListView.OnCentralPositionChangedListener {
         formatXP.getLinePaint().setStrokeWidth(10);
         formatXP.getLinePaint().setStrokeJoin(Paint.Join.ROUND);
 
-        //formatter2.getFillPaint().setAlpha(220);
         statsPlot.addSeries(mExperienceSeries, formatXP);
     }
 }

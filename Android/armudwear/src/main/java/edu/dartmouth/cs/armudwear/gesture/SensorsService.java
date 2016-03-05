@@ -1,7 +1,10 @@
 package edu.dartmouth.cs.armudwear.gesture;
 
 import android.app.Service;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
@@ -49,24 +52,26 @@ public class SensorsService extends Service implements SensorEventListener {
         mSensorManager.registerListener(this, mAccelerometer,
                 SensorManager.SENSOR_DELAY_FASTEST);
 
-        mServiceTaskContext = intent.getIntExtra(Globals.CONTEXT_KEY, Globals.FOCUS_CONTEXT_IDLE);
-        switch (mServiceTaskContext) {
-            case Globals.FOCUS_CONTEXT_CHARACTER:
-                mCharContextClassifier = new AttackClassifier();
-                break;
-            case Globals.FOCUS_CONTEXT_OBJECT:
-                mObjContextClassifier = new ObjClassifier();
-                break;
-            case Globals.FOCUS_CONTEXT_INVENTORY:
-                mInvContextClassifier = new InvClassifier();
-                break;
-            default:
-                stopSelf();
-        }
+        mServiceTaskContext = Globals.FOCUS_CONTEXT_CHARACTER;
+        mCharContextClassifier = new AttackClassifier();
+        mObjContextClassifier = new ObjClassifier();
+        mInvContextClassifier = new InvClassifier();
+        LocalBroadcastManager.getInstance(this).registerReceiver(mSwitchClassifierReceiver,
+                new IntentFilter(Globals.CONTEXT_KEY));
+
+
         mAsyncTask = new OnSensorChangedTask();
         mAsyncTask.execute();
         return START_NOT_STICKY;
     }
+
+    private BroadcastReceiver mSwitchClassifierReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            Log.d("SensorService","Switching Classifier");
+            mServiceTaskContext = intent.getIntExtra(Globals.CONTEXT_KEY, Globals.FOCUS_CONTEXT_IDLE);
+        }
+    };
 
     @Override
     public void onDestroy() {
@@ -142,6 +147,7 @@ public class SensorsService extends Service implements SensorEventListener {
                                 command_index = (int) mInvContextClassifier.classify(featVec);
                                 break;
                             default:
+                                Log.d("SensorService","STOPPING SELF");
                                 stopSelf();
                         }
 
@@ -150,7 +156,6 @@ public class SensorsService extends Service implements SensorEventListener {
                             sendMessage(command_index);
                         } else {
                             Log.d("SensorsService", "No command detected");
-
                         }
                     }
                 } catch (Exception e) {
