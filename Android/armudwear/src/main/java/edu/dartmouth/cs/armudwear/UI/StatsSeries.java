@@ -5,7 +5,7 @@ import com.androidplot.xy.XYSeries;
 public class StatsSeries implements XYSeries {
     private double value;
     private double radius;
-    private int SAMPLE_LIMIT = 30;
+    private int SAMPLE_LIMIT = 60;
     double baseAngle = Math.PI * 4 / 3;
     double maxAngleDelta = Math.PI * 5 / 3;
     double maxValue;

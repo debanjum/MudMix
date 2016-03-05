@@ -125,6 +125,7 @@ public class MainActivity extends ActionBarActivity implements
     protected Boolean mConnected;
     protected Boolean amWaitingOnSubmit;
     protected Boolean mLoggedIn;
+    private boolean mReceiverRegistered;
     protected String mLoginString;
 
     protected SharedPreferences mPrefs;
@@ -176,7 +177,7 @@ public class MainActivity extends ActionBarActivity implements
 
         // Initialise TTS engine
         tts = new TextToSpeech(this, this);
-
+        tts.setSpeechRate(1.7f);
 
         // Update values using data stored in the Bundle.
         updateValuesFromBundle(savedInstanceState);
@@ -188,6 +189,8 @@ public class MainActivity extends ActionBarActivity implements
         //getting gesture data from watchlistener service
         LocalBroadcastManager.getInstance(this).registerReceiver(mMsgFromWearReceiver,
                 new IntentFilter(Globals.COMMAND_PATH));
+        mReceiverRegistered = true;
+
 
         startService(new Intent(this, PhoneDataLayerListenerService.class));
 
@@ -196,6 +199,7 @@ public class MainActivity extends ActionBarActivity implements
         mPrefs = getPreferences(MODE_PRIVATE);
         if (mPrefs.contains("LOGIN_STRING")) {
             mLoginString = mPrefs.getString("LOGIN_STRING", "connect test test");
+            Log.d("login string", mLoginString);
             logintoMUD();
             mSubmitNameButton.setVisibility(View.GONE);
             mCharacterNameEdit.setVisibility(View.GONE);
@@ -274,6 +278,11 @@ public class MainActivity extends ActionBarActivity implements
     protected void onStart() {
         super.onStart();
         mGoogleApiClient.connect();
+        if (!mReceiverRegistered) {
+            LocalBroadcastManager.getInstance(this).registerReceiver(mMsgFromWearReceiver,
+                    new IntentFilter(Globals.COMMAND_PATH));
+            mReceiverRegistered = true;
+        }
     }
 
     @Override
@@ -282,10 +291,15 @@ public class MainActivity extends ActionBarActivity implements
         // Within {@code onPause()}, we pause location updates, but leave the
         // connection to GoogleApiClient intact.  Here, we resume receiving
         // location updates if the user has requested them.
-
+        if (!mReceiverRegistered) {
+            LocalBroadcastManager.getInstance(this).registerReceiver(mMsgFromWearReceiver,
+                    new IntentFilter(Globals.COMMAND_PATH));
+            mReceiverRegistered = true;
+        }
         if (mGoogleApiClient.isConnected() && mRequestingLocationUpdates) {
             startLocationUpdates();
         }
+
     }
 
     @Override
@@ -301,6 +315,7 @@ public class MainActivity extends ActionBarActivity implements
     protected void onStop() {
         mGoogleApiClient.disconnect();
         LocalBroadcastManager.getInstance(this).unregisterReceiver(mMsgFromWearReceiver);
+        mReceiverRegistered = false;
         super.onStop();
         if (tts!=null) {
             tts.stop();
@@ -423,7 +438,7 @@ public class MainActivity extends ActionBarActivity implements
     private void speech(String Message)
     {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            tts.speak(Message, TextToSpeech.QUEUE_FLUSH, null, null);
+            tts.speak(Message, TextToSpeech.QUEUE_ADD, null, null);
             Log.d("Message Passed to TTS:", Message);
         }
         else{
