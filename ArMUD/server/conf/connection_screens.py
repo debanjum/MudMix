@@ -18,9 +18,9 @@ screen is read and displayed by the unlogged-in "look" command.
 from django.conf import settings
 from evennia import utils
 
-CONNECTION_SCREEN = \
-"""{b=============================================================={n
- Welcome to {g%s{n!
-
-{b=============================================================={n""" \
- % (settings.SERVERNAME)
+CONNECTION_SCREEN = """ """
+#\
+#"""
+# Welcome to {g%s{n!
+#""" \
+# % (settings.SERVERNAME)

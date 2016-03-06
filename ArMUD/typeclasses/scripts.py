@@ -15,6 +15,7 @@ just overloads its hooks to have it perform its function.
 from evennia import DefaultScript, utils
 from evennia.utils.spawner import spawn
 import objects, random
+import urllib2, simplejson, forecastio
 
 class Script(DefaultScript):
     """
@@ -100,21 +101,21 @@ class Weather(DefaultScript):
         "Called once, during initial creation"
         self.key = "weather_script"
         self.desc = "Gives random weather messages."
-        self.interval = 60 * 5 # every 5 minutes
+        self.interval = 30 * 60 # every 30 minutes
         self.persistent = True
+        self.db.API_Key = 'e07c570e1f5f85a42dacce70bc6c63ce'
 
     def at_repeat(self):
-        "called every self.interval seconds."        
-        rand = random.random()
-        if rand < 0.5:
-            weather = "A faint breeze is felt."
-        elif rand < 0.7:
-            weather = "Clouds sweep across the sky." 
-        else:
-            weather = "There is a light drizzle of rain."
-        # send this message to everyone inside the object this
-        # script is attached to (likely a room)
-        self.obj.msg_contents(weather)
+        "called every self.interval seconds."
+        loc = self.obj.db.location.split(',')
+
+        # if location contains lat, lng
+        if len(loc)==2:
+            # Get Weather from Forecast.io
+            forecast = forecastio.load_forecast(self.db.API_Key, loc[0], loc[1])
+
+        # Extract current weather summary
+        self.obj.db.cweather = forecast.currently().summary
 
 
 class RoomState(DefaultScript): 
@@ -124,50 +125,85 @@ class RoomState(DefaultScript):
         "Called once, during initial creation"
         self.key = "roomstate_script"
         self.desc = "main script for creating and maintaining room state."
-        self.interval = 5 * 1 # every 5 minutes
+        self.interval = 2 * 60 # every 5 minutes
         self.persistent = True
-        self.db.available_veggies = ["orange", "tomato", "potato"]
+        self.db.available_veggies = ["orange", "tomato", "potato", "apple", "rutabega", "pineapple", "blueberry", "mushroom"]
+        self.db.fogmessage = ['A mist hangs over everything','The fog turns everything into murky shadows','You worry about your footing in the dense fog']
+        self.db.clearmessage = ['A clear day','Sunlight streams across','The trees are bright and green','You hear the laughter of undergrads','You wish you had a frisbee']
+        self.db.cloudmessage = ['Clouds sweep across the sky.','A faint breeze is felt','A cloud in the distance reminds you of something','Tree branches creak and sway in the wind','A chill comes over you','You see a mountain in the distance']
+        self.db.rainmessage = ['The rain falls heavily on the ground','The dark clouds are pregnant with rain','The ground is slick, be careful']
+        self.db.snowmessage = ['White snow blankets the world','The cold bites at your face']
+        self.db.API_Key = 'e07c570e1f5f85a42dacce70bc6c63ce'
 
     def at_start(self):
         print self.obj.db.roomtype_value,self.obj.db.roomtype_key
+
+        if not self.db.fogmessage:
+            self.db.fogmessage = ['A mist hangs over everything','The fog turns everything into murky shadows','You worry about your footing in the dense fog']
+            self.db.clearmessage = ['A clear day','Sunlight streams across','The trees are bright and green','You hear the laughter of undergrads','You wish you had a frisbee']
+            self.db.cloudmessage = ['Clouds sweep across the sky.','A faint breeze is felt','A cloud in the distance reminds you of something','Tree branches creak and sway in the wind','A chill comes over you','You see a mountain in the distance']
+            self.db.rainmessage = ['The rain falls heavily on the ground','The dark clouds are pregnant with rain','The ground is slick, be careful']
+            self.db.snowmessage = ['White snow blankets the world','The cold bites at your face']
+
+
         if self.obj.db.roomtype_value == 'university':
             pass
-        if self.obj.db.roomtype_key == 'leisure' or self.obj.db.roomtype_key == 'building':
+
+        if self.obj.db.roomtype_key != 'building':
+            # search for veggies in room 
             veggies_in_room = [obj for obj in self.obj.contents_get() if utils.inherits_from(obj, objects.Vegetable)]
+            # if not veggies in room
             if not veggies_in_room:
                 prototype = random.choice(self.db.available_veggies)
-                # use the spawner to create a new Vegetable from the
-                # spawner dictionary
+                # use the spawner to create a new Vegetable from the spawner dictionary
                 veggie = spawn(objects.VEGETABLE_PROTOTYPES[prototype], prototype_parents=objects.VEGETABLE_PROTOTYPES)[0]
                 veggie.location = self.obj
                 veggiestring = ("A %s ripens" % veggie)
                 self.obj.msg_contents(veggiestring)
+                self.obj.msg_contents("DATA,obj_add," + veggie + veggie.dbref)
+
+            # if weather not set for room 
+            if not self.db.cweather:
+                loc = self.obj.db.location.split(',')
+                # if location contains lat, lng
+                if len(loc)==2:
+                    # Get Weather from Forecast.io
+                    forecast = forecastio.load_forecast(self.db.API_Key, loc[0], loc[1])
+                    # Extract and store current weather summary
+                    self.obj.cweather = forecast.currently().summary
 
 
     def at_repeat(self):
-        "called every self.interval seconds."        
-        
-        if self.obj.db.roomtype_key == 'leisure':
-            "weather updates if outdoors"
-            rand = random.random()
-            if rand < 0.5:
-                weather = "A faint breeze is felt."
-            elif rand < 0.7:
-                weather = "Clouds sweep across the sky." 
-            else:
-                weather = "There is a light drizzle of rain."
-            # send this message to everyone inside the object this
-            # script is attached to (likely a room)
-            self.obj.msg_contents(weather)
+        "called every self.interval seconds."
 
+        weathermessage = 'A clear day'
+
+        if self.obj.db.roomtype_key != 'building' and self.obj.db.cweather: # 'building'
+            "weather updates if outdoors"
+            # trigger random message of type found from last weather summary of room
+            if 'Haze' in self.obj.db.cweather or 'Fog' in self.obj.db.cweather:
+                weathermessage = random.choice(self.db.fogmessage)
+            elif 'Clear' in self.obj.db.cweather:
+                weathermessage = random.choice(self.db.clearmessage)
+            elif 'Cloud' in self.obj.db.cweather or 'Overcast' in self.obj.db.cweather:
+                weathermessage = random.choice(self.db.cloudmessage)
+            elif 'Rain' in self.obj.db.cweather or 'Thunder' in self.obj.db.cweather or 'thunder' in self.obj.db.cweather or 'Drizzle' in self.obj.db.cweather:
+                weathermessage = random.choice(self.db.rainmessage)
+            elif 'Snow' in self.obj.db.cweather or 'snow' in self.obj.db.cweather or 'flurry' in self.obj.db.cweather:
+                weathermessage = random.choice(self.db.snowmessage)
+
+        # send this message to everyone inside the object this script is attached to (likely a room)
+        self.obj.msg_contents(weathermessage)
+
+        # vegetable spawn control
         veggies_in_room = [obj for obj in self.obj.contents_get() if utils.inherits_from(obj, objects.Vegetable)]
 
         if self.obj.db.roomtype_key == 'leisure' and not veggies_in_room:
             "vegetables spawned if less than threshold in farms"
             prototype = random.choice(self.db.available_veggies)
-            # use the spawner to create a new Vegetable from the
-            # spawner dictionary
+            # use the spawner to create a new Vegetable from the spawner dictionary
             veggie = spawn(objects.VEGETABLE_PROTOTYPES[prototype], prototype_parents=objects.VEGETABLE_PROTOTYPES)[0]
             veggie.location = self.obj
             veggiestring = ("A %s ripens" % veggie)
             self.obj.msg_contents(veggiestring)
+            self.obj.msg_contents("DATA,obj_add," + veggie + veggie.dbref)

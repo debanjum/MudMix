@@ -14,6 +14,7 @@ from future.utils import listvalues
 import random
 from evennia import DefaultObject, DefaultExit, Command, CmdSet, default_cmds
 from evennia import utils
+from random import randint
 from evennia.utils import search
 from evennia.utils.spawner import spawn
 
@@ -215,10 +216,17 @@ class WeaponAttack(Command):
                 print "3.5"
                 target.db.HP -= damage
                 target.msg("DATA,health,%d" % target.db.HP)
+                if target.db.HP < 20:
+                    self.caller.msg("%s looks badly wounded" % target)
             else:
                 # sorry, impossible to fight this enemy ...
                 self.caller.msg("The enemy seems unaffacted.")
                 return False
+            # adding xp for successful hit
+            xp_gain = randint(1, 3)
+            self.caller.db.xp += xp_gain
+            self.caller.msg("DATA,xp,%s" % xp_gain)
+
         else:
             self.caller.msg(string + "{rYou miss.{n")
             target.msg(tstring + "{gThey miss you.{n")

@@ -45,12 +45,14 @@ def skill_combat(*args):
         add_XP(char1, xp_gain)
         char2.msg(failtext % (char1, dmg))
         char2.db.HP -= dmg
+        char2.msg("DATA,hp,%s" % char2.db.HP)
         check_defeat(char2) 
     elif char2.db.combat >= roll2 > roll1:
         # char 2 hits
         dmg = roll_dmg() + char2.db.STR
         char1.msg(failtext % (char2, dmg))
         char1.db.HP -= dmg
+        char1.msg("DATA,hp,%s" % char1.db.HP)
         check_defeat(char1)
         char2.msg(wintext % (char1, dmg))       
         add_XP(char2, xp_gain) 
@@ -73,7 +75,7 @@ def roll_challenge(character1, character2, skillname):
         raise RunTimeError("Skillname %s not found." % skillname)
 
 
-def create_room(room_name, character, roomtype_key="Generic", roomtype_value="Generic"):
+def create_room(room_name, character, location, roomtype_key="Generic", roomtype_value="Generic"):
     """
     Create room(if doesn't exist) based on location metadata, 
     attach script to control room state and move player to the room
@@ -91,11 +93,22 @@ def create_room(room_name, character, roomtype_key="Generic", roomtype_value="Ge
     if room.db.roomtype_key != roomtype_key or room.db.roomtype_value != roomtype_value:
         room.db.roomtype_key = roomtype_key
         room.db.roomtype_value = roomtype_value
+
+        if roomtype_key != 'building':  # if outdoors
+            room.scripts.add("typeclasses.scripts.Weather")              # attach script to get weather
+
         logger.log_info("Room Type Updated to %s: %s" % (room.db.roomtype_key,room.db.roomtype_value))
+
+    if not room.db.location:
+        room.db.location = location
 
     # teleport character to room, if not already in room
     if character.location.name != room_name:
-        logger.log_info("Character location: |%s|" % cl)
-        logger.log_info("User entered |%s|" % room_name)
+        character.move_to(room, quiet=True)
+        logger.log_info("User entered %s" % room_name)
         character.msg("You've entered %s" % room_name)
-        character.move_to(room, quiet=True)               
+        character.db.just_entered = False
+
+    elif character.db.just_entered:
+        character.msg("You're in %s" % room_name)
+        character.db.just_entered = False
