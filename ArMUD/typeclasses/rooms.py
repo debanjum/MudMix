@@ -28,6 +28,7 @@ class Room(DefaultRoom):
         self.db.roomtype_key = "Generic"     # Room Type Key
         self.db.roomtype_value = "Generic"   # Room Type Value
         self.db.location = ""                # Room Location
+        self.db.cweather = ""                # Room Weather
 
 
     def at_object_receive(self, obj, source_location):
@@ -75,10 +76,10 @@ class Room(DefaultRoom):
                         item.msg("DATA,char_remove," + obj.name + obj.dbref)
                     # else if item is of class Mob
                     elif utils.inherits_from(item, Mob):
-                        item.msg("DATA,char_remove," + obj.name + obj.dbref)
+                        obj.msg("DATA,char_remove," + item.name + item.dbref)
                     # else if item is of class Npc
                     elif utils.inherits_from(item, Npc):
-                        obj.msg("DATA,char_add," + item.name + item.dbref)
+                        obj.msg("DATA,char_remove," + item.name + item.dbref)
                     # else (an object)
                     else:
                         obj.msg("DATA,obj_remove," + item.name + item.dbref)

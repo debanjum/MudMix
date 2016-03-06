@@ -45,6 +45,7 @@ class Character(DefaultCharacter):
         self.db.STR = randint(1, 10)
         self.db.combat = randint(5, 10)
         self.db.equip = ""
+        self.db.just_entered=False
         self.msg("Welcome to the Matrix, %s" % self.name)
 
     def at_post_puppet(self):
@@ -58,7 +59,9 @@ class Character(DefaultCharacter):
         self.msg("DATA,xp,%d" % self.db.XP)
         self.msg("DATA,strength,%d" % self.db.STR)
         self.msg("DATA,combat,%d" % self.db.combat)
+        self.msg("DATA,LOC,%s" % self.location.name)
         self.msg("Welcome back to the Matrix, %s" % self.name)
+        self.db.just_entered=True
 
         # pass room items to the player
         for item in self.location.contents:
