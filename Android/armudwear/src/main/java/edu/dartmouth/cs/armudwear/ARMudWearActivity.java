@@ -43,6 +43,8 @@ import android.graphics.Paint;
 
 import com.androidplot.xy.*;
 
+import org.w3c.dom.Text;
+
 public class ARMudWearActivity extends WearableActivity
 implements GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener,
 WearableListView.OnCentralPositionChangedListener {
@@ -66,10 +68,12 @@ WearableListView.OnCentralPositionChangedListener {
     private int mMaxHP;
     private int mExperiencePoints;
     private int mLevel;
+    private String mCharacterName;
 
     private XYPlot statsPlot;
     private StatsSeries mHealthSeries;
     private StatsSeries mExperienceSeries;
+    private TextView statsView;
 
     private int mCurrentFocusContext;
     private String mCurrentFocusObject;
@@ -98,6 +102,7 @@ WearableListView.OnCentralPositionChangedListener {
                 mFocusListView = (WearableListView) stub.findViewById(R.id.focusListView);
                 mTitleView = (TextView) stub.findViewById(R.id.titleText);
                 statsPlot = (XYPlot) stub.findViewById(R.id.statsPlot);
+                statsView = (TextView) stub.findViewById(R.id.statsView);
                 updateFocusArray(Globals.FOCUS_CONTEXT_CHARACTER);
                 mFocusListView.addOnCentralPositionChangedListener(positionChangedListener);
                 mFocusListView.setClickable(true);
@@ -145,6 +150,7 @@ WearableListView.OnCentralPositionChangedListener {
         mCurrentFocusContext = Globals.FOCUS_CONTEXT_CHARACTER;
         mFocusIsIdle = true;
         mCurrentLocation = "";
+        mCharacterName = "Name";
 
         buildGoogleApiClient();
 
@@ -193,7 +199,8 @@ WearableListView.OnCentralPositionChangedListener {
             switch (command) {
                 case "char_add":
                     Log.d("command receiver", "adding character");
-                    if (!mCharArray.contains(obj)) {
+                    String name = obj.split("#")[0];
+                    if (!mCharArray.contains(obj) && !name.equals(mCharacterName)) {
                         mCharArray.add(obj);
                         updateFocusArray(Globals.FOCUS_CONTEXT_CHARACTER);
                     }
@@ -236,6 +243,7 @@ WearableListView.OnCentralPositionChangedListener {
                         mHealthSeries.updateMaxValue(mMaxHP);
                     }
                     statsPlot.redraw();
+                    updateStatsString();
                     break;
                 case "xp":
                     int newXP = Integer.parseInt(obj);
@@ -246,14 +254,22 @@ WearableListView.OnCentralPositionChangedListener {
                     }
                     mExperienceSeries.updateValue(mExperiencePoints);
                     statsPlot.redraw();
+                    updateStatsString();
                     break;
                 case "level":
                     mLevel = Integer.parseInt(obj);
                     mExperienceSeries.updateMaxValue((int) Math.pow(mLevel + 1, 2));
+                    updateStatsString();
+                    break;
+                case "name":
+                    mCharacterName = obj;
+                    updateStatsString();
                     break;
                 case "LOC":
                     if (!mCurrentLocation.equals(obj)) {
                         mCurrentLocation = obj;
+                        mCharArray.clear();
+                        mObjArray.clear();
                         onClickContextSwitch(mCurrentFocusContext);
                     }
             }
@@ -320,6 +336,15 @@ WearableListView.OnCentralPositionChangedListener {
             Log.d("updating listview", mFocusArray.get(0));
             ObjectAdapter mAdapter = new ObjectAdapter(this, mFocusArray);
             mFocusListView.setAdapter(mAdapter);
+        }
+    }
+
+    private void updateStatsString() {
+        String statsString = mCharacterName + "\nHP: " + mHealthPoints + "\nXP: "
+                + mExperiencePoints + "\nLVL:" + mLevel;
+        statsView.setText(statsString);
+        if (mCharacterName.equals("")) {
+            new SendMessageToPhoneThread(Globals.COMMAND_PATH, "stats").start();
         }
     }
 
@@ -416,6 +441,8 @@ WearableListView.OnCentralPositionChangedListener {
     public void onDestroy() {
         Log.d("Main Activity", "OnDestroy!");
         stopService(new Intent(this, SensorsService.class));
+        LocalBroadcastManager.getInstance(this).unregisterReceiver(mCommandReceiver);
+        LocalBroadcastManager.getInstance(this).unregisterReceiver(mMsgToWearReceiver);
         super.onDestroy();
     }
 
@@ -441,7 +468,7 @@ WearableListView.OnCentralPositionChangedListener {
     @Override
     public void onConnected(Bundle bundle) {
         Log.i("GoogleApiClient", "Connected!");
-        if (mCurrentLocation.equals("") || mFocusArray.isEmpty()) {
+        if (mCurrentLocation.equals("") || mFocusArray.isEmpty() || mCharacterName.equals("")) {
             new SendMessageToPhoneThread(Globals.COMMAND_PATH, "stats").start();
         }
     }
