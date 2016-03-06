@@ -110,6 +110,8 @@ public class MainActivity extends ActionBarActivity implements
     protected TextView mLongitudeTextView;
     protected TextView mLocInfoTextView;
     protected EditText mCharacterNameEdit;
+    private boolean mSubmitSuccess;
+
 
     // Labels.
     protected String mLatitudeLabel;
@@ -169,6 +171,7 @@ public class MainActivity extends ActionBarActivity implements
         mConnected = false;
         amWaitingOnSubmit = false;
         mLoggedIn = false;
+        mSubmitSuccess = false;
 
         // Add the project titles to display in a list for the listview adapter.
 
@@ -236,24 +239,36 @@ public class MainActivity extends ActionBarActivity implements
      * updates have already been requested.
      */
     public void submitNameButtonHandler(View view) {
-        String name = mCharacterNameEdit.getText().toString();
-        boolean hasNonAlpha = name.matches("^.*[^a-zA-Z0-9 ].*$");
+        if (!amWaitingOnSubmit && !mSubmitSuccess) {
+            String name = mCharacterNameEdit.getText().toString();
+            boolean hasNonAlpha = name.matches("^.*[^a-zA-Z0-9 ].*$");
 
-        if (name == null || name.equals("")) {
-            mCharacterNameEdit.setText("Please Enter a Name!");
-        } else if (hasNonAlpha) {
-            mCharacterNameEdit.setText("Name must be alphanumeric!");
-        } else if (name.length() > 12) {
-            mCharacterNameEdit.setText("Name must be  < 12 chars");
+            if (name == null || name.equals("")) {
+                mCharacterNameEdit.setText("Please Enter a Name!");
+            } else if (hasNonAlpha) {
+                mCharacterNameEdit.setText("Name must be alphanumeric!");
+            } else if (name.length() > 12) {
+                mCharacterNameEdit.setText("Name must be  < 12 chars");
+            } else {
+                Random r = new Random();
+                int password = r.nextInt(10000 - 100 + 1) + 100;
+                String createString = "create " + name + " " + password;
+                client.send(createString);
+                amWaitingOnSubmit = true;
+
+                mLoginString = "connect " + name + " " + password;
+                Log.d("login init", mLoginString);
+                mSubmitNameButton.setText("Try again / Start game");
+            }
         } else {
-            Random r = new Random();
-            int password = r.nextInt(10000 - 100 + 1) + 100;
-            String createString = "create " + name + " " + password;
-            client.send(createString);
-            amWaitingOnSubmit = true;
-
-            mLoginString = "connect " + name + " " + password;
-            Log.d("login init", mLoginString);
+            if (mSubmitSuccess) {
+                mCharacterNameEdit.setText("");
+                mSubmitNameButton.setVisibility(View.GONE);
+                mCharacterNameEdit.setVisibility(View.GONE);
+            } else {
+                mCharacterNameEdit.setText("");
+                mSubmitNameButton.setText("Submit");
+            }
         }
     }
 
@@ -414,14 +429,13 @@ public class MainActivity extends ActionBarActivity implements
             //keep in mind that the message either can't have commas or the splitMessage array needs to be reworked
             if (amWaitingOnSubmit) {
                 if (!"Sorry".equals(splitMessage[0])) {
+                    mSubmitSuccess = true;
                     SharedPreferences.Editor edit = mPrefs.edit();
                     edit.putString("LOGIN_STRING", mLoginString);
                     while (!edit.commit()) {
                         Log.d("login init", "commit failed, trying again");
                     }
                     logintoMUD();
-                    mSubmitNameButton.setVisibility(View.GONE);
-                    mCharacterNameEdit.setVisibility(View.GONE);
                 }
                 amWaitingOnSubmit = false;
             }

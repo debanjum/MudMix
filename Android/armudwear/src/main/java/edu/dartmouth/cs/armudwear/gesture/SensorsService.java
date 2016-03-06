@@ -31,6 +31,7 @@ public class SensorsService extends Service implements SensorEventListener {
     private ObjClassifier mObjContextClassifier;
     private InvClassifier mInvContextClassifier;
     private int mThreadFlag = 0;
+    private int cooldown = 0;
 
     private static ArrayBlockingQueue<Double> mAccBuffer;
 
@@ -151,11 +152,16 @@ public class SensorsService extends Service implements SensorEventListener {
                                 stopSelf();
                         }
 
-                        if (Globals.NO_COMMAND_DETECTED != command_index) {
-                            Log.d("SensorsService", "Command detected");
-                            sendMessage(command_index);
+                        if (cooldown == 0) {
+                            if (Globals.NO_COMMAND_DETECTED != command_index) {
+                                Log.d("SensorsService", "Command detected");
+                                sendMessage(command_index);
+                                cooldown = 3;
+                            } else {
+                                Log.d("SensorsService", "No command detected");
+                            }
                         } else {
-                            Log.d("SensorsService", "No command detected");
+                            cooldown--;
                         }
                     }
                 } catch (Exception e) {

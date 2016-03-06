@@ -1,5 +1,6 @@
 package edu.dartmouth.cs.armudwear;
 
+import android.app.ActivityManager;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -54,7 +55,6 @@ WearableListView.OnCentralPositionChangedListener {
     private Button mRightListButton;
 
     private ArrayList<String> mCharArray;
-    private ArrayList<String> mMobArray;
     private ArrayList<String> mObjArray;
     private ArrayList<String> mInvArray;
     private ArrayList<String> mFocusArray;
@@ -65,8 +65,6 @@ WearableListView.OnCentralPositionChangedListener {
     private int mHealthPoints;
     private int mMaxHP;
     private int mExperiencePoints;
-    private int mMagicPoints;
-    private int mGoldPieces;
     private int mLevel;
 
     private XYPlot statsPlot;
@@ -75,7 +73,7 @@ WearableListView.OnCentralPositionChangedListener {
 
     private int mCurrentFocusContext;
     private String mCurrentFocusObject;
-    private boolean mFocusIsIdle;
+    private boolean mFocusIsIdle = true;
     private boolean mDataReceiverRegistered;
     private boolean mCommandReceiverRegistered;
 
@@ -102,14 +100,20 @@ WearableListView.OnCentralPositionChangedListener {
                 statsPlot = (XYPlot) stub.findViewById(R.id.statsPlot);
                 updateFocusArray(Globals.FOCUS_CONTEXT_CHARACTER);
                 mFocusListView.addOnCentralPositionChangedListener(positionChangedListener);
-                mFocusListView.setOnClickListener(new WearableListView.OnClickListener() {
+                mFocusListView.setClickable(true);
+                mFocusListView.setClickListener(new WearableListView.ClickListener() {
                     @Override
-                    public void onClick(View v) {
+                    public void onClick(WearableListView.ViewHolder view) {
                         // put your onClick logic here
                         Log.d("FocusListView", "OnClick");
                         if (!mCurrentFocusObject.equals("") && !mCurrentFocusObject.equals("Nothing Here")) {
                             new SendMessageToPhoneThread(Globals.COMMAND_PATH, "look " + mCurrentFocusObject).start();
                         }
+                    }
+
+                    @Override
+                    public void onTopEmptyRegionClick() {
+
                     }
                 });
                 createStatsDisplay();
@@ -136,7 +140,6 @@ WearableListView.OnCentralPositionChangedListener {
         mCharArray = new ArrayList<String>();
         mObjArray = new ArrayList<String>();
         mInvArray = new ArrayList<String>();
-        mMobArray = new ArrayList<String>();
         mFocusArray = new ArrayList<String>();
         mCurrentFocusObject = "";
         mCurrentFocusContext = Globals.FOCUS_CONTEXT_CHARACTER;
@@ -155,8 +158,9 @@ WearableListView.OnCentralPositionChangedListener {
         mCommandReceiverRegistered = true;
 
         startService(new Intent(this, WatchDataLayerListenerService.class));
-        startService(new Intent(this, SensorsService.class));
-
+        if (!isMyServiceRunning(SensorsService.class)) {
+            startService(new Intent(this, SensorsService.class));
+        }
         vibrator = (Vibrator) getSystemService(VIBRATOR_SERVICE);
     }
 
@@ -185,7 +189,7 @@ WearableListView.OnCentralPositionChangedListener {
             // Get extra data included in the Intent
             String command = intent.getStringExtra("command");
             String obj = intent.getStringExtra("obj");
-            Log.d("command receiver", "Got command: " + command + " " + obj);
+            Log.d("message receiver", "Got data: " + command + " " + obj);
             switch (command) {
                 case "char_add":
                     Log.d("command receiver", "adding character");
@@ -234,7 +238,12 @@ WearableListView.OnCentralPositionChangedListener {
                     statsPlot.redraw();
                     break;
                 case "xp":
-                    mExperiencePoints = Integer.parseInt(obj);
+                    int newXP = Integer.parseInt(obj);
+                    if (newXP < mExperiencePoints) {
+                        mExperiencePoints += newXP;
+                    } else {
+                        mExperiencePoints = newXP;
+                    }
                     mExperienceSeries.updateValue(mExperiencePoints);
                     statsPlot.redraw();
                     break;
@@ -345,9 +354,6 @@ WearableListView.OnCentralPositionChangedListener {
             String obj = mCurrentFocusObject;
             if (!mCurrentFocusObject.equals("") && !mCurrentFocusObject.equals("Nothing Here")) {
                 if (mGoogleApiClient.isConnected()) {
-                    if (mCurrentLocation.equals("")) {
-                        new SendMessageToPhoneThread(Globals.COMMAND_PATH, "watch update").start();
-                    }
                     Log.d("Send command to phone", command + " " + obj);
                     new SendMessageToPhoneThread(Globals.COMMAND_PATH, command + " " + obj).start();
                 } else {
@@ -361,20 +367,23 @@ WearableListView.OnCentralPositionChangedListener {
     };
 
 
+    private boolean isMyServiceRunning(Class<?> serviceClass) {
+        ActivityManager manager = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
+        for (ActivityManager.RunningServiceInfo service : manager.getRunningServices(Integer.MAX_VALUE)) {
+            if (serviceClass.getName().equals(service.service.getClassName())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+
     @Override
     protected void onStart() {
         super.onStart();
         Log.d("MainActivity", "onStart");
         mGoogleApiClient.connect();
         startService(new Intent(this, WatchDataLayerListenerService.class));
-        if (!mDataReceiverRegistered) {
-            LocalBroadcastManager.getInstance(this).registerReceiver(mMsgToWearReceiver,
-                    new IntentFilter(Globals.ARMUD_DATA_PATH));
-        }
-        if (!mCommandReceiverRegistered) {
-            LocalBroadcastManager.getInstance(this).registerReceiver(mCommandReceiver,
-                    new IntentFilter(Globals.COMMAND_UPDATED));
-        }
     }
 
     @Override
@@ -405,6 +414,8 @@ WearableListView.OnCentralPositionChangedListener {
 
     @Override
     public void onDestroy() {
+        Log.d("Main Activity", "OnDestroy!");
+        stopService(new Intent(this, SensorsService.class));
         super.onDestroy();
     }
 
@@ -430,6 +441,9 @@ WearableListView.OnCentralPositionChangedListener {
     @Override
     public void onConnected(Bundle bundle) {
         Log.i("GoogleApiClient", "Connected!");
+        if (mCurrentLocation.equals("") || mFocusArray.isEmpty()) {
+            new SendMessageToPhoneThread(Globals.COMMAND_PATH, "stats").start();
+        }
     }
 
     @Override
