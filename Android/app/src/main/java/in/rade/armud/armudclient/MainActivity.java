@@ -716,11 +716,11 @@ public class MainActivity extends ActionBarActivity implements
             NodeApi.GetConnectedNodesResult nodes = Wearable.NodeApi.getConnectedNodes(mGoogleApiClient).await();
             for(Node node : nodes.getNodes()) {
                 MessageApi.SendMessageResult result = Wearable.MessageApi.sendMessage(mGoogleApiClient, node.getId(), path, message.getBytes()).await();
-                if(!result.getStatus().isSuccess()){
-                    Log.e("test", "error");
-                } else {
-                    Log.i("test", "success!! sent to: " + node.getDisplayName());
+                while(!result.getStatus().isSuccess()){
+                    Log.e("SendMessageToWearThread", "error");
+                    result = Wearable.MessageApi.sendMessage(mGoogleApiClient, node.getId(), path, message.getBytes()).await();
                 }
+                Log.i("SendMessageToWearThread", "success!! sent to: " + node.getDisplayName());
             }
         }
     }

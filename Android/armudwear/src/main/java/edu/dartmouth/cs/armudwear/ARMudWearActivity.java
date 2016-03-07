@@ -80,6 +80,7 @@ WearableListView.OnCentralPositionChangedListener {
     private boolean mFocusIsIdle = true;
     private boolean mDataReceiverRegistered;
     private boolean mCommandReceiverRegistered;
+    private String mCommandToSend;
 
     protected GoogleApiClient mGoogleApiClient;
 
@@ -151,6 +152,7 @@ WearableListView.OnCentralPositionChangedListener {
         mFocusIsIdle = true;
         mCurrentLocation = "";
         mCharacterName = "Name";
+        mCommandToSend = "";
 
         buildGoogleApiClient();
 
@@ -327,6 +329,7 @@ WearableListView.OnCentralPositionChangedListener {
                     break;
             }
             if (mFocusArray.isEmpty()){
+                new SendMessageToPhoneThread(Globals.COMMAND_PATH, "stats").start();
                 mFocusArray.add("Nothing Here");
                 mCurrentFocusObject = "";
             } else {
@@ -383,6 +386,7 @@ WearableListView.OnCentralPositionChangedListener {
                     new SendMessageToPhoneThread(Globals.COMMAND_PATH, command + " " + obj).start();
                 } else {
                     Log.d("Send command failure", "not connected to phone");
+                    mCommandToSend = command + " " + obj;
                     mGoogleApiClient.connect();
                 }
             } else {
@@ -470,6 +474,10 @@ WearableListView.OnCentralPositionChangedListener {
         Log.i("GoogleApiClient", "Connected!");
         if (mCurrentLocation.equals("") || mFocusArray.isEmpty() || mCharacterName.equals("")) {
             new SendMessageToPhoneThread(Globals.COMMAND_PATH, "stats").start();
+        }
+        if (!mCommandToSend.equals("")) {
+            new SendMessageToPhoneThread(Globals.COMMAND_PATH, mCommandToSend).start();
+            mCommandToSend = "";
         }
     }
 
