@@ -298,7 +298,6 @@ public class MainActivity extends ActionBarActivity implements
     }
 
 
-
     @Override
     protected void onStart() {
         super.onStart();
@@ -661,7 +660,7 @@ public class MainActivity extends ActionBarActivity implements
         Log.d("onLocationChanged", "Accuracy: " + mCurrentLocation.getAccuracy() );
 
         //increase threshold by one meter every ten seconds, until the threshold has been increased by 20 meters
-        float timeBasedThresholdAugment = (System.currentTimeMillis() - mRoomArrivalTime) / 10000;
+        float timeBasedThresholdAugment = (System.currentTimeMillis() - mRoomArrivalTime) / 3000;
         timeBasedThresholdAugment = timeBasedThresholdAugment > 20 ? 20 : timeBasedThresholdAugment;
 
         if (mCurrentLocation.getAccuracy() < mAccuracyThresh + timeBasedThresholdAugment) {
