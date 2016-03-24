@@ -63,6 +63,7 @@ public class WebSocketClient {
 
     public void connect() {
         if (mThread != null && mThread.isAlive()) {
+            Log.d("WebSocketClient", "Thread is alive, no connect attempted");
             return;
         }
 

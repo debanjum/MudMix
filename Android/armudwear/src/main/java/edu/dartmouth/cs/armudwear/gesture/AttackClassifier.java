@@ -8,60 +8,82 @@ class AttackClassifier {
                 throws Exception {
 
                 double p = Double.NaN;
-                p = AttackClassifier.N1744ee4f44(i);
+                p = AttackClassifier.N6e37fa090(i);
                 return p;
         }
-        static double N1744ee4f44(Object []i) {
+        static double N6e37fa090(Object []i) {
                 double p = Double.NaN;
-                if (i[64] == null) {
+                if (i[2] == null) {
                         p = Globals.NO_COMMAND_DETECTED;
-                } else if (((Double) i[64]).doubleValue() <= 35.856138) {
-                        p = AttackClassifier.N2e79907845(i);
-                } else if (((Double) i[64]).doubleValue() > 35.856138) {
-                        p = AttackClassifier.N15992bab47(i);
+                } else if (((Double) i[2]).doubleValue() <= 66.447381) {
+                        p = AttackClassifier.N1d009d671(i);
+                } else if (((Double) i[2]).doubleValue() > 66.447381) {
+                        p = AttackClassifier.N769af3d85(i);
                 }
                 return p;
         }
-        static double N2e79907845(Object []i) {
+        static double N1d009d671(Object []i) {
                 double p = Double.NaN;
                 if (i[30] == null) {
                         p = Globals.NO_COMMAND_DETECTED;
-                } else if (((Double) i[30]).doubleValue() <= 9.988797) {
+                } else if (((Double) i[30]).doubleValue() <= 2.861875) {
                         p = Globals.NO_COMMAND_DETECTED;
-                } else if (((Double) i[30]).doubleValue() > 9.988797) {
-                        p = AttackClassifier.N2efbce1e46(i);
+                } else if (((Double) i[30]).doubleValue() > 2.861875) {
+                        p = AttackClassifier.N135de4112(i);
                 }
                 return p;
         }
-        static double N2efbce1e46(Object []i) {
+        static double N135de4112(Object []i) {
                 double p = Double.NaN;
-                if (i[0] == null) {
-                        p = Globals.COMMAND_ID_ATTACK;
-                } else if (((Double) i[0]).doubleValue() <= 585.688632) {
-                        p = Globals.COMMAND_ID_ATTACK;
-                } else if (((Double) i[0]).doubleValue() > 585.688632) {
+                if (i[12] == null) {
                         p = Globals.NO_COMMAND_DETECTED;
+                } else if (((Double) i[12]).doubleValue() <= 6.869175) {
+                        p = Globals.NO_COMMAND_DETECTED;
+                } else if (((Double) i[12]).doubleValue() > 6.869175) {
+                        p = AttackClassifier.N792822053(i);
                 }
                 return p;
         }
-        static double N15992bab47(Object []i) {
+        static double N792822053(Object []i) {
                 double p = Double.NaN;
                 if (i[10] == null) {
                         p = Globals.COMMAND_ID_ATTACK;
-                } else if (((Double) i[10]).doubleValue() <= 70.982076) {
-                        p = AttackClassifier.N7b01f2a048(i);
-                } else if (((Double) i[10]).doubleValue() > 70.982076) {
+                } else if (((Double) i[10]).doubleValue() <= 13.522317) {
+                        p = Globals.COMMAND_ID_ATTACK;
+                } else if (((Double) i[10]).doubleValue() > 13.522317) {
+                        p = AttackClassifier.N39d1b4674(i);
+                }
+                return p;
+        }
+        static double N39d1b4674(Object []i) {
+                double p = Double.NaN;
+                if (i[0] == null) {
+                        p = Globals.NO_COMMAND_DETECTED;
+                } else if (((Double) i[0]).doubleValue() <= 286.599955) {
+                        p = Globals.NO_COMMAND_DETECTED;
+                } else if (((Double) i[0]).doubleValue() > 286.599955) {
                         p = Globals.COMMAND_ID_ATTACK;
                 }
                 return p;
         }
-        static double N7b01f2a048(Object []i) {
+        static double N769af3d85(Object []i) {
                 double p = Double.NaN;
-                if (i[4] == null) {
+                if (i[10] == null) {
                         p = Globals.COMMAND_ID_ATTACK;
-                } else if (((Double) i[4]).doubleValue() <= 167.816858) {
+                } else if (((Double) i[10]).doubleValue() <= 12.051446) {
+                        p = AttackClassifier.N36ff26bd6(i);
+                } else if (((Double) i[10]).doubleValue() > 12.051446) {
                         p = Globals.COMMAND_ID_ATTACK;
-                } else if (((Double) i[4]).doubleValue() > 167.816858) {
+                }
+                return p;
+        }
+        static double N36ff26bd6(Object []i) {
+                double p = Double.NaN;
+                if (i[10] == null) {
+                        p = Globals.COMMAND_ID_ATTACK;
+                } else if (((Double) i[10]).doubleValue() <= 10.907309) {
+                        p = Globals.COMMAND_ID_ATTACK;
+                } else if (((Double) i[10]).doubleValue() > 10.907309) {
                         p = Globals.NO_COMMAND_DETECTED;
                 }
                 return p;

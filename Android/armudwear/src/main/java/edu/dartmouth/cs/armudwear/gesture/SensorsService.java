@@ -84,7 +84,8 @@ public class SensorsService extends Service implements SensorEventListener {
             e.printStackTrace();
         }
         mSensorManager.unregisterListener(this);
-        Log.i("", "");
+        LocalBroadcastManager.getInstance(this).unregisterReceiver(mSwitchClassifierReceiver);
+        Log.i("SensorService", "onDestroy");
         super.onDestroy();
     }
 
@@ -156,7 +157,7 @@ public class SensorsService extends Service implements SensorEventListener {
                             if (Globals.NO_COMMAND_DETECTED != command_index) {
                                 Log.d("SensorsService", "Command detected");
                                 sendMessage(command_index);
-                                cooldown = 3;
+                                cooldown = 2;
                             } else {
                                 Log.d("SensorsService", "No command detected");
                             }

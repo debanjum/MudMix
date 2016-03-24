@@ -99,9 +99,16 @@ public class MainActivity extends ActionBarActivity implements
     protected LocationRequest mLocationRequest;
 
     /**
-     * Represents a geographical location.
+     * Represents a geographical / virtual location.
      */
     protected Location mCurrentLocation;
+    protected String mCurrentRoom;
+
+    // for help in smoothing location updates
+    private float mLatestLocAccuracy;
+    private long mRoomArrivalTime;
+    protected float mAccuracyThresh = 30; // dynamic location update threshold
+
 
     // UI Widgets.
     protected Button mSubmitNameButton;
@@ -132,9 +139,6 @@ public class MainActivity extends ActionBarActivity implements
 
     protected SharedPreferences mPrefs;
 
-
-    protected static final float mAccuracyThresh = 30; // only update if less than 15 meter accuracy
-
     private TextToSpeech tts;       //Declare text to speech variable
 
     /**
@@ -145,6 +149,7 @@ public class MainActivity extends ActionBarActivity implements
     List<BasicNameValuePair> extraHeaders = Arrays.asList(
             new BasicNameValuePair("Cookie", "session=abcd")
     );
+
 
 
     @Override
@@ -173,6 +178,11 @@ public class MainActivity extends ActionBarActivity implements
         mLoggedIn = false;
         mSubmitSuccess = false;
 
+        mLatestLocAccuracy = 30;
+        mRoomArrivalTime = 0;
+        mCurrentRoom = "";
+
+
         // Add the project titles to display in a list for the listview adapter.
 
         // Initialise a listview adapter with the project titles and use it
@@ -180,7 +190,7 @@ public class MainActivity extends ActionBarActivity implements
 
         // Initialise TTS engine
         tts = new TextToSpeech(this, this);
-        tts.setSpeechRate(1.7f);
+        tts.setSpeechRate(1.2f);
 
         // Update values using data stored in the Bundle.
         updateValuesFromBundle(savedInstanceState);
@@ -288,7 +298,6 @@ public class MainActivity extends ActionBarActivity implements
     }
 
 
-
     @Override
     protected void onStart() {
         super.onStart();
@@ -332,10 +341,13 @@ public class MainActivity extends ActionBarActivity implements
         LocalBroadcastManager.getInstance(this).unregisterReceiver(mMsgFromWearReceiver);
         mReceiverRegistered = false;
         super.onStop();
+        /*
         if (tts!=null) {
             tts.stop();
             tts.shutdown();
-        }};
+        }
+        */
+    }
 
     /**
      * WEBSOCKET CONDUIT CODE
@@ -345,6 +357,7 @@ public class MainActivity extends ActionBarActivity implements
         @Override
         public void onConnect() {
             Log.d(WEBSOCKET_TAG, "Connected!");
+            speech("Armud connected");
             mConnected = true;
         }
 
@@ -365,6 +378,7 @@ public class MainActivity extends ActionBarActivity implements
         public void onDisconnect(int code, String reason) {
             Log.d(WEBSOCKET_TAG, String.format("Disconnected! Code: %d Reason: %s", code, reason));
             mConnected = false;
+            speech("Armud Disconnected");
             while (!mConnected) {
                 try {
                     Log.d(WEBSOCKET_TAG, "trying to connect to server");
@@ -378,7 +392,21 @@ public class MainActivity extends ActionBarActivity implements
 
         @Override
         public void onError(Exception error) {
+           // client.disconnect();
             Log.e(WEBSOCKET_TAG, "Error!", error);
+            if (error.toString().contains("EPIPE")) {
+                mConnected = false;
+                speech("Armud Disconnected");
+                while (!mConnected) {
+                    try {
+                        Log.d(WEBSOCKET_TAG, "trying to connect to server");
+                        Thread.sleep(1000);
+                        client.connect();
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                }
+            }
         }
     }, extraHeaders);
 
@@ -403,6 +431,8 @@ public class MainActivity extends ActionBarActivity implements
 
         Log.d(WEBSOCKET_TAG, mLoginString);
         client.send(mLoginString);
+        String charName = mLoginString.split(" ")[1];
+        new SendMessageToWearThread(Globals.ARMUD_DATA_PATH, "name," + charName).start();
         mLoggedIn = true;
     }
 
@@ -425,6 +455,12 @@ public class MainActivity extends ActionBarActivity implements
         if (splitMessage[0].equals("DATA")) {
             Log.d(WEBSOCKET_TAG, "Sending message to watch");
             new SendMessageToWearThread(Globals.ARMUD_DATA_PATH, splitMessage[1] + "," + splitMessage[2]).start();
+            if (splitMessage[1].equals("LOC") && !splitMessage[2].equals(mCurrentRoom)){
+                mAccuracyThresh = mLatestLocAccuracy < 10 ? 10 : mLatestLocAccuracy;
+                mCurrentRoom = splitMessage[2];
+                mRoomArrivalTime = System.currentTimeMillis();
+            }
+
         } else {
             //keep in mind that the message either can't have commas or the splitMessage array needs to be reworked
             if (amWaitingOnSubmit) {
@@ -622,8 +658,14 @@ public class MainActivity extends ActionBarActivity implements
     public void onLocationChanged(Location location) {
         mCurrentLocation = location;
         Log.d("onLocationChanged", "Accuracy: " + mCurrentLocation.getAccuracy() );
-        if (mCurrentLocation.getAccuracy() < mAccuracyThresh) {
+
+        //increase threshold by one meter every ten seconds, until the threshold has been increased by 20 meters
+        float timeBasedThresholdAugment = (System.currentTimeMillis() - mRoomArrivalTime) / 3000;
+        timeBasedThresholdAugment = timeBasedThresholdAugment > 20 ? 20 : timeBasedThresholdAugment;
+
+        if (mCurrentLocation.getAccuracy() < mAccuracyThresh + timeBasedThresholdAugment) {
             mLastUpdateTime = DateFormat.getTimeInstance().format(new Date());
+            mLatestLocAccuracy = mCurrentLocation.getAccuracy();
             Log.d("onLocationChanged", "talk with mud");
             talkwithMUD(mCurrentLocation);
             //client.send("location 72.012 23.231");
@@ -673,11 +715,11 @@ public class MainActivity extends ActionBarActivity implements
             NodeApi.GetConnectedNodesResult nodes = Wearable.NodeApi.getConnectedNodes(mGoogleApiClient).await();
             for(Node node : nodes.getNodes()) {
                 MessageApi.SendMessageResult result = Wearable.MessageApi.sendMessage(mGoogleApiClient, node.getId(), path, message.getBytes()).await();
-                if(!result.getStatus().isSuccess()){
-                    Log.e("test", "error");
-                } else {
-                    Log.i("test", "success!! sent to: " + node.getDisplayName());
+                while(!result.getStatus().isSuccess()){
+                    Log.e("SendMessageToWearThread", "error");
+                    result = Wearable.MessageApi.sendMessage(mGoogleApiClient, node.getId(), path, message.getBytes()).await();
                 }
+                Log.i("SendMessageToWearThread", "success!! sent to: " + node.getDisplayName());
             }
         }
     }
