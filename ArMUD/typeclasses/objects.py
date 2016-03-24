@@ -39,9 +39,138 @@ class TutorialObject(DefaultObject):
 
 #------------------------------------------------------------
 #
+# Newspaper - object type
+#
+# A Newspaper is necessary in order to keep updated in the 
+# world. A newspaper (which here is assumed to be a bladed
+# melee Newspaper for close combat) has three commands,
+# stab, slash and defend. Newspapers also have a property "magic"
+# to determine if they are usable against certain enemies.
+#
+# Since Characters don't have special skills in the tutorial,
+# we let the newspaper itself determine how easy/hard it is
+# to hit with it, and how much damage it can do.
+#
+#------------------------------------------------------------
+
+
+class Newspaper(TutorialObject):
+    """
+    This defines a bladed newspaper.
+    Important attributes (set at creation):
+      edition - Google News Edition
+      reading - User still reading ?
+    """
+
+    def at_object_creation(self):
+        "Called at first creation of the object"
+        super(Newspaper, self).at_object_creation()
+        self.db.edition = 'gnp.EDITION_ENGLISH_INDIA'
+        self.db.reading = False
+
+
+    def reset(self):
+        """
+        When reset, the newspaper is simply deleted, unless it has a place
+        to return to.
+        """
+        if self.location.has_player and self.home == self.location:
+            self.location.msg_contents("The yellow torn %s disintegrates in the wind" % self.key)
+            self.delete()
+        else:
+            self.location = self.home
+
+
+    def at_defact(self, caller):
+        """
+        Read the newspaper. 
+            read <newspaper>
+        """
+        "Implements the read"
+        
+        string = ("You read your %s. " % self.key)
+        ostring = ("%s reads the %s. " % (caller.key, self.key))
+        caller.msg(string)                                       # message character
+        caller.location.msg_contents(ostring, exclude=caller)    # message room
+
+
+#------------------------------------------------------------
+#
+# Newspaper rack - spawns newspapers
+#
+# This is a spawner mechanism that creates custom newspapers from a
+# spawner prototype dictionary. Note that we only create a single typeclass
+# (Newspaper) yet customize all these different newspapers using the spawner.
+# The spawner dictionaries could easily sit in separate modules and be
+# used to create unique and interesting variations of typeclassed
+# objects.
+#
+#------------------------------------------------------------
+
+NEWSPAPER_PROTOTYPES = {
+    "newspaper": {
+        "typeclass": "typeclasses.objects.Newspaper",
+        "key": "Newspaper",
+        "edition": "gnp.EDITION_ENGLISH_INDIA"},
+    "usnewspaper": {
+        "prototype": "newspaper",
+        "aliases": "us news",
+        "edition": "gnp.EDITION_ENGLISH_US"}
+    }
+
+
+
+class NewspaperRack(TutorialObject):
+    """
+    This object represents a newspaper store. When people use the
+    "get newspaper" command on this rack, it will produce one
+    random newspaper from among those registered to exist
+    on it. This will also set a property on the character
+    to make sure they can't get more than one at a time.
+    Attributes to set on this object:
+        available_newspapers: list of prototype-keys from
+            NEWSPAPER_PROTOTYPES, the newspapers available in this rack.
+        no_more_newspapers_msg - error message to return to players
+            who already got one newspaper from the rack and tries to
+            grab another one.
+    """
+    def at_object_creation(self):
+        """
+        called at creation
+        """
+        self.db.rack_id = "newspaperrack_1"
+        # these are prototype names from the prototype
+        # dictionary above.
+        self.db.get_newspaper_msg = "You find {c%s{n."
+        self.db.no_more_newspapers_msg = "you find nothing else of use."
+        self.db.available_newspapers = ["usnewspaper", "newspaper"]
+
+    def at_defact(self, caller):
+        """
+        This will produce a new newspaper from the rack,
+        assuming the caller hasn't already gotten one. When
+        doing so, the caller will get Tagged with the id
+        of this rack, to make sure they cannot keep
+        pulling newspapers from it indefinitely.
+        """
+        rack_id = self.db.rack_id
+        if caller.tags.get(rack_id, category="tutorial_world"):
+            caller.msg(self.db.no_more_newspapers_msg)
+        else:
+            prototype = random.choice(self.db.available_newspapers)
+            # use the spawner to create a new Newspaper from the
+            # spawner dictionary
+            newspaper = spawn(NEWSPAPER_PROTOTYPES[prototype], prototype_parents=NEWSPAPER_PROTOTYPES)[0]
+            #caller.tags.add(rack_id, category="tutorial_world")  # tag the caller so as to track if already got newspaper
+            newspaper.location = caller
+            caller.msg(self.db.get_newspaper_msg % newspaper.key)
+
+        
+#------------------------------------------------------------
+#
 # Vegetable - object type
 #
-# Food is required to heal or gain strenth in this world.
+# Food is required to heal or gain strength in this world.
 #------------------------------------------------------------
 
 class Vegetable(TutorialObject):
@@ -64,7 +193,7 @@ class Vegetable(TutorialObject):
         to return to.
         """
         if self.location.has_player and self.home == self.location:
-            self.location.msg_contents("%s suddenly and magically fades into nothingness, as if it was never there ..." % self.key)
+            self.location.msg_contents("the %s rots away" % self.key)
             self.delete()
         else:
             self.location = self.home
@@ -86,28 +215,60 @@ VEGETABLE_PROTOTYPES = {
     "vegetable": {
         "typeclass": "typeclasses.objects.Vegetable",
         "key": "Vegetable",
-        "heal": 1,
+        "heal": 10,
         "strength": 1,
         "desc": "A generic vegetable."},
     "potato": {
         "prototype": "vegetable",
         "aliases": ["aloo"],
         "key": " potato",
-        "desc":"A russel potato."},
+        "desc":"A russet potato."},
     "tomato": {
         "prototype": "vegetable",
         "key": "tomato",
         "aliases": ["tamatar"],
         "desc": "A tomato on vine.",
-        "heal": 0.5,
-        "strength": 0.0},
+        "heal": 10,
+        "strength": 0.5},
     "orange": {
         "prototype": "vegetable",
         "key": "orange",
         "aliases": ["santra"],
         "desc": "A valencia orange!",
-        "heal": 1.5,
+        "heal": 20,
         "strength": 0.5},
+    "blueberry": {
+        "prototype": "vegetable",
+        "key": "blueberry",
+        "desc": "A blue blueberry",
+        "heal": 30,
+        "strength": 0.5},
+    "pineapple": {
+        "prototype": "vegetable",
+        "key": "pineapple",
+        "desc": "Yeah, these apples doesn't grow on pines.",
+        "heal": 20,
+        "strength": 0.5},
+    "rutabega": {
+        "prototype": "vegetable",
+        "key": "rutabega",
+        "desc": "",
+        "heal": 15,
+        "strength": 1.5},
+    "mushroom": {
+        "prototype": "vegetable",
+        "key": "mushroom",
+        "aliases": ["magic"],
+        "desc": "The right kind of magic",
+        "heal": 30,
+        "strength": 1.5},
+    "apple": {
+        "prototype": "vegetable",
+        "key": "apple",
+        "aliases": ["saeb"],
+        "desc": "No original sins triggered eating this apple.",
+        "heal": 30,
+        "strength": 1.5},
     }
 
 
@@ -158,6 +319,7 @@ class WeaponAttack(Command):
 #            self.caller.msg(string)
 #            return
 #
+
         # parry mode
         if cmdstring in ("parry", "defend"):
             string = "You raise your weapon in a defensive pose, ready to block the next enemy attack."
@@ -188,7 +350,7 @@ class WeaponAttack(Command):
             hit = float(self.obj.db.hit)   # un modified due to slash
             damage = self.obj.db.damage  # un modified due to slash
             string = "You slash with a %s. " % self.obj.key
-            tstring = "%s slashes at you with a %s. " % (self.caller.key, self.obj.key)
+            tstring = "%s attacks you! " % (self.caller.key)
             ostring = "%s slashes at %s with a %s. " % (self.caller.key, target.key, self.obj.key)
             self.caller.db.combat_parry_mode = False
         else:
@@ -202,30 +364,39 @@ class WeaponAttack(Command):
             target.msg("{GYou defend, trying to avoid the attack.{n")
             hit *= 2.5
 
+
         if random.random() <= hit:
             self.caller.msg(string + "{gIt's a hit!{n")
             target.msg(tstring + "{rIt's a hit!{n")
             self.caller.location.msg_contents(ostring + "It's a hit!", exclude=[target,self.caller])
-            print "0"
+
             # call enemy hook
             if hasattr(target, "at_hit"):
                 # should return True if target is defeated, False otherwise.
-                print "0.5"
                 return target.at_hit(self.obj, self.caller, damage)
+
             elif target.db.HP:
-                print "3.5"
                 target.db.HP -= damage
                 target.msg("DATA,health,%d" % target.db.HP)
-                if target.db.HP < 20:
+                if target.db.HP < 5 and target.db.HP > 2:
                     self.caller.msg("%s looks badly wounded" % target)
+                if target.db.HP <= 2 and target.db.HP > 0:
+                    self.caller.msg("%s is almost dead!" % target)
+
             else:
                 # sorry, impossible to fight this enemy ...
                 self.caller.msg("The enemy seems unaffacted.")
                 return False
-            # adding xp for successful hit
-            xp_gain = randint(1, 3)
-            self.caller.db.xp += xp_gain
-            self.caller.msg("DATA,xp,%s" % xp_gain)
+
+            # adding XP and level up for successful hit
+            self.caller.db.XP += randint(1, 3)
+            self.caller.msg("DATA,xp,%i" % self.caller.db.XP)
+            if self.caller.db.XP >= (self.caller.db.level + 1) ** 2:
+                self.caller.db.level += 1
+                self.caller.db.STR += 1
+                self.caller.db.combat += 2
+                self.caller.msg("You're now level %i!" % self.caller.db.level)
+                self.caller.msg("DATA,level,%i" % self.caller.db.level)
 
         else:
             self.caller.msg(string + "{rYou miss.{n")
@@ -259,6 +430,7 @@ class Weapon(TutorialObject):
         self.db.magic = False
         self.locks.add("call:attr(equip, %s)" % self.dbref)
         self.cmdset.add_default(CmdSetWeapon, permanent=True)
+
 
     def reset(self):
         """
@@ -379,6 +551,14 @@ WEAPON_PROTOTYPES = {
         "desc": "The weapon of a long-dead heroine and a more civilized age, the hawk-shaped hilt of this blade almost has a life of its own.",
         "hit": 0.85,
         "parry": 0.7,
+        "damage": 11},
+     "quantum spanner": {
+        "prototype": "warhammer",
+        "key": "The Quantum Spanner",
+        "aliases": ["quantum spanner"],
+        "desc": "This is a precise tool for destroying autonomous machines",
+        "hit": 0.9,
+        "parry": 0.7,
         "damage": 11}
     }
 
@@ -392,7 +572,7 @@ class CmdGetWeapon(Command):
     key = "get weapon"
     aliases = "get weapon"
     locks = "cmd:all()"
-    help_cateogory = "TutorialWorld"
+    help_category = "TutorialWorld"
 
     def func(self):
         """
@@ -432,6 +612,7 @@ class WeaponRack(TutorialObject):
         """
         self.cmdset.add_default(CmdSetWeaponRack, permanent=True)
         self.db.rack_id = "weaponrack_1"
+        self.db.defact = "get weapon"
         # these are prototype names from the prototype
         # dictionary above.
         self.db.get_weapon_msg = "You find {c%s{n."

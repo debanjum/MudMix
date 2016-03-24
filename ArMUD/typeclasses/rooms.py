@@ -38,7 +38,7 @@ class Room(DefaultRoom):
             # Else if a PC has entered
             if utils.inherits_from(obj, Character):
                 # Cause the character to look around
-                obj.execute_cmd('look')
+                #obj.execute_cmd('look')
 
                 for item in self.contents:
                     # Any NPCs in the room ?

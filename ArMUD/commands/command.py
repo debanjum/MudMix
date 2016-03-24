@@ -102,8 +102,8 @@ class DefAct(BaseCommand):
             # check if object with requested dbref on self
             item = [obj for obj in character.contents_get() if itemname==obj.dbref]
             # check if object with requested dbref in room
-            #if not item:
-                #item = [obj for obj in character.location.contents if itemname==obj.dbref]
+            if not item:
+                item = [obj for obj in character.location.contents_get() if itemname==obj.dbref]
 
             # if item asked for was found on self or in room
             if item:
@@ -124,11 +124,6 @@ class DefAct(BaseCommand):
                 character.msg("%s doesn't exist here" % itempassed)
                 return
 
-        # if object of class character return
-        if (utils.inherits_from(item, Character)):
-            character.msg("You can't %s a character" % itempassed)
-            return
-
         # if object of class weapon
         if (utils.inherits_from(item, Weapon)):
             # if weapon was equipped
@@ -138,24 +133,23 @@ class DefAct(BaseCommand):
                 character.msg("You've unequipped yourself")
             # if weapon was dequipped
             else:
+                # equip
                 character.db.equip = item.dbref
                 character.msg("You've equipped yourself with %s" % item.name)
-#                # search for any pre-existing equipped weapons on self
-#                weapons = [obj for obj in character.contents if utils.inherits_from(obj, Weapon) and obj.dbref!=item.dbref and obj.db.equip]
-#                # set them to dequipped (as player can be equipped with only one weapon)
-#                for weapon in weapons:
-#                    weapon.db.equip = False
-#                # set current selected item to equipped
-#                item.db.equip = True
             return 
 
-        # if item to be acted on is in the room
-        if item.db.defact:
+        # if item to be acted on is in the room/inventory and doesn't belong to above categories
+        # if has hook at_defact, call it
+        if hasattr(item, "at_defact"):
+            return item.at_defact(self.caller)
+        # else if has default action associated with it, call that
+        elif item.db.defact:
             command=item.db.defact+" "+ item.name+item.dbref
+        # else just execute a look on the object
         else:
             command="look " + item.name+item.dbref
-        character.execute_cmd(command)
 
+        character.execute_cmd(command)
 
 
 class CmdStats(BaseCommand):
@@ -176,13 +170,13 @@ class CmdStats(BaseCommand):
     def func(self):
 
         # pass stats to the player
+        self.caller.msg("DATA,name,%s" % self.caller.name)
         self.caller.msg("DATA,level,%d" % self.caller.db.level)
         self.caller.msg("DATA,health,%d" % self.caller.db.HP)
         self.caller.msg("DATA,xp,%d" % self.caller.db.XP)
         self.caller.msg("DATA,strength,%d" % self.caller.db.STR)
         self.caller.msg("DATA,combat,%d" % self.caller.db.combat)
         self.caller.msg("DATA,LOC,%s" % self.caller.location.name)
-        self.caller.msg("Welcome back to the Matrix, %s" % self.caller.name)
 
         # pass room items to the player
         for item in self.caller.location.contents:
@@ -229,6 +223,7 @@ class Location(BaseCommand):
         # Invalid Arguments
         if len(self.loc)<2:
             self.caller.msg("Invalid Input")
+
         # Valid Arguments
         else:
             api = overpass.API()
@@ -418,6 +413,8 @@ class CmdGet(MuxCommand):
         # calling hook method
         obj.at_get(caller)
 
+        if obj.name == "The Quantum Spanner":
+            caller.location.msg_contents("The earth opens up beneath you. You fall down a deep hole. You land in a pile of robot parts. One of the robot's faces looks very familiar. How can this be?! The face of the robot is.... Michael's face! Michael must be a robot!")
 
 
 class CmdDrop(MuxCommand):

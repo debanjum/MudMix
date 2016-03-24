@@ -3,6 +3,7 @@ from time import time
 from random import randint
 from world import rules
 from evennia import TICKER_HANDLER as tickerhandler
+from scripts import Asimov 
 
 class Npc(Character):
     """
@@ -18,7 +19,8 @@ class Npc(Character):
         self.db.HP = 30          # as npc is dying
         self.db.STR = 1
         self.db.combat = 2
-
+        self.scripts.add(Asimov)
+        self.db.desc = "An old man in a tweed jacket. He lies on the ground, bleeding."
 
     def at_char_entered(self, character):
         """
@@ -35,7 +37,8 @@ class Npc(Character):
             self.db.last_attack=time()
 
         else:
-            self.execute_cmd("say Ahh, the pain! I need water. Help me %s!"% character)
+            self.execute_cmd("say Hello, %s!" % character)
+
 
 
     def at_tick(self):

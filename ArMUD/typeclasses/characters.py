@@ -80,6 +80,30 @@ class Character(DefaultCharacter):
         for item in self.contents:
             self.msg("DATA,inv_add," + item.name + item.dbref)
 
+        self.msg("In Game News today, the Federal Bureau of Intution closed its investigation into the recent spurt of attacks on the AI community at Dartmouth. It claims the case is unresolvable by its psychic experts.")
+
+    def at_post_unpuppet(self, player, session=None):
+        """
+        We stove away the character when the player goes ooc/logs off,
+        otherwise the character object will remain in the room also
+        after the player logged off ("headless", so to say).
+
+        Args:
+            player (Player): The player object that just disconnected
+                from this object.
+            session (Session): Session controlling the connection that
+                just disconnected.
+        """
+        if not self.sessions.count():
+            # only remove this char from grid if no sessions control it anymore.
+            if self.location:
+                def message(obj, from_obj):
+                    obj.msg("%s has left the game." % self.get_display_name(obj), from_obj=from_obj)
+                    obj.msg("DATA,char_remove,%s" % self.get_display_name(obj), from_obj=from_obj)
+                self.location.for_contents(message, exclude=[self], from_obj=self)
+                self.db.prelogout_location = self.location
+                self.location = None
+
 
     def return_appearance(self, looker):
         """

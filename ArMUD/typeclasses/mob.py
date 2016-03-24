@@ -116,13 +116,14 @@ class Mob(tut_objects.TutorialObject):
         # db-store if it is dead or not
         self.db.is_dead = True
         # specifies how much damage we divide away from non-magic weapons
-        self.db.damage_resistance = 100.0
+        self.db.damage_resistance = 1.0   
         # pace (number of seconds between ticks) for
         # the respective modes.
         self.db.patrolling_pace = 6
-        self.db.aggressive_pace = 2
-        self.db.hunting_pace = 1
-        self.db.death_pace = 100 # stay dead for 100 seconds
+        self.db.aggressive_pace = 8
+        self.db.hunting_pace = 3
+        self.db.death_pace = 300 # stay dead for 100 seconds
+        self.db.equip = ""
 
         # we store the call to the tickerhandler
         # so we can easily deactivate the last
@@ -134,15 +135,19 @@ class Mob(tut_objects.TutorialObject):
 
         # store two separate descriptions, one for alive and
         # one for dead (corpse)
-        self.db.desc_alive = "This is an angry zombie. It roams the university building, searching for a place to give its dissertation."
-        self.db.desc_dead = "A dead zombie corpse."
+        self.db.desc_alive = "This is an angry robot. It roams the university building, searching for computer science students to kill."
+        self.db.desc_dead = "A broken robot."
 
         # HP stats
-        self.db.full_HP = 100
-        self.db.HP = 100
+        self.db.full_HP = 30
+        self.db.HP = 30
+        self.db.XP = 10
+        self.db.level = 1
         self.db.STR = 3#randint(1, 10)
         self.db.combat = 5#randint(5, 10)
-
+        
+        self.db.log="Robot Log"
+        self.db.myweapon="Wrench"
 
         # when this mob defeats someone, we move the character off to
         # some other place (Dark Cell in the tutorial).
@@ -152,9 +157,9 @@ class Mob(tut_objects.TutorialObject):
         self.db.defeat_msg_room = "%s falls to the ground."
         self.db.weapon_ineffective_msg = "Your weapon just passes through your enemy, causing almost no effect!"
 
-        self.db.death_msg = "After the last hit %s evaporates." % self.key
-        self.db.hit_msg = "%s wails, shudders and writhes." % self.key
-        self.db.irregular_msgs = ["the enemy looks about.", "the enemy changes stance."]
+        self.db.death_msg = "After the last hit %s breaks down." % self.key
+        self.db.hit_msg = "%s creaks. Sparks fly about." % self.key
+        self.db.irregular_msgs = ["the robot looks about.", "the robot beeps."]
 
         self.db.tutorial_info = "This is an object with simple state AI, using a ticker to move."
 
@@ -204,9 +209,10 @@ class Mob(tut_objects.TutorialObject):
             The first suitable target found.
 
         """
-        targets = [obj for obj in location.contents_get(exclude=self)
+        targets = [obj for obj in self.location.contents_get(exclude=self)
                     if obj.has_player and not obj.is_superuser]
         return targets[0] if targets else None
+
 
     def set_alive(self, *args, **kwargs):
         """
@@ -218,6 +224,15 @@ class Mob(tut_objects.TutorialObject):
         self.db.desc = self.db.desc_alive
         self.ndb.is_immortal = self.db.immortal
         self.ndb.is_patrolling = self.db.patrolling
+
+        #wpn = self.search_object(self.db.myweapon)
+        wpns = [obj for obj in self.contents_get() if obj.name==self.db.myweapon]
+        if not wpns:
+            return
+        else:
+            wpn = wpns[0]
+        if wpn:
+            self.db.equip = wpn.dbref
         if not self.location:
             self.move_to(self.home)
         if self.db.patrolling:
@@ -285,6 +300,7 @@ class Mob(tut_objects.TutorialObject):
         self.ndb.is_hunting = False
         self.ndb.is_attacking = True
 
+
     def do_patrol(self, *args, **kwargs):
         """
         Called repeatedly during patrolling mode.  In this mode, the
@@ -302,16 +318,19 @@ class Mob(tut_objects.TutorialObject):
                 self.start_attacking()
                 return
         # no target found, look for an exit.
-        exits = [exi for exi in self.location.exits
-                 if exi.access(self, "traverse")]
+        #exits = [exi for exi in self.location.exits
+        #         if exi.access(self, "traverse")]
+        exitnames = ["Sudikoff Hall","Kemeny Hall","Robinson Hall"]            # allowed rooms to exit to/enter
+        exitname = random.choice(exitnames)                                    # randomly pick an exit
+        exits = search_object(exitname, typeclass='typeclasses.rooms.Room')[0] # find room with exitname
+
         if exits:
-            # randomly pick an exit
-            exit = random.choice(exits)
             # move there.
-            self.move_to(exit.destination)
+            self.move_to(exits)
         else:
             # no exits! teleport to home to get away.
             self.move_to(self.home)
+
 
     def do_hunting(self, *args, **kwargs):
         """
@@ -328,15 +347,19 @@ class Mob(tut_objects.TutorialObject):
                 self.start_attacking()
                 return
         # no targets found, scan surrounding rooms
-        exits = [exi for exi in self.location.exits
-                 if exi.access(self, "traverse")]
+        #exits = [exi for exi in self.location.exits
+        #         if exi.access(self, "traverse")]
+
+        exitnames = ["Sudikoff Hall","Kemeny Hall","Robinson Hall"]         # allowed rooms to exit to/enter
+        exits = [search_object(exitname, typeclass='typeclasses.rooms.Room')[0] for exitname in exitnames]  # find rooms with exitnames
+
         if exits:
             # scan the exits destination for targets
             for exit in exits:
-                target = self._find_target(exit.destination)
+                target = self._find_target(exit)
                 if target:
                     # a target found. Move there.
-                    self.move_to(exit.destination)
+                    self.move_to(exit)
                     return
             # if we get to this point we lost our
             # prey. Resume patrolling.
@@ -344,6 +367,7 @@ class Mob(tut_objects.TutorialObject):
         else:
             # no exits! teleport to home to get away.
             self.move_to(self.home)
+
 
     def do_attack(self, *args, **kwargs):
         """
@@ -363,8 +387,9 @@ class Mob(tut_objects.TutorialObject):
         # we use the same attack commands as defined in
         # tutorial_world.objects.Weapon, assuming that
         # the mob is given a Weapon to attack with.
-        attack_cmd = random.choice(("parry","slash", "chop"))
+        attack_cmd = random.choice(("parry","slash"))
         self.execute_cmd("%s %s" % (attack_cmd, target))
+        print ("%s %s" % (attack_cmd, target))
 
         # analyze the current state
         if target.db.HP <= 0:
@@ -375,6 +400,10 @@ class Mob(tut_objects.TutorialObject):
             send_defeated_to = search_object(self.db.send_defeated_to)
             if send_defeated_to:
                 target.move_to(send_defeated_to[0], quiet=True)
+                if target.db.full_HP:
+                    target.db.HP = target.db.full_HP
+                else:
+                    target.db.HP = 100 
             else:
                 logger.log_err("Mob: mob.db.send_defeated_to not found: %s" % self.db.send_defeated_to)
 
@@ -386,28 +415,47 @@ class Mob(tut_objects.TutorialObject):
         Someone landed a hit on us. Check our status
         and start attacking if not already doing so.
         """
+
+        self.ndb.is_immortal = False
         if not self.ndb.is_immortal:
             if not weapon.db.magic:
                 # not a magic weapon - divide away magic resistance
                 damage /= self.db.damage_resistance
                 attacker.msg(self.db.weapon_ineffective_msg)
-                print "1"
             else:
                 self.location.msg_contents(self.db.hit_msg)
-                print "2"
 
-            print "3"
             self.db.HP -= damage
 
         # analyze the result
         if self.db.HP <= 0:
             # we are dead!
             attacker.msg(self.db.death_msg)
+
+            # find robot log object
+            objs = [obj for obj in self.contents_get() if obj.name==self.db.log]
+
+            if not objs:
+                return
+            else:
+                obj = objs[0]
+
+            print obj.name
+
+            # drop robot log in room    
+            obj.move_to(self.location, quiet=True)
+            self.location.msg_contents("DATA,obj_add," + obj.name + obj.dbref)
+            self.location.msg_contents("The %s falls to the ground." % obj.name, exclude=self)
+            
+            # call the object script's at_drop() method.
+            obj.at_drop(self)
+
             self.set_dead()
         else:
             # still alive, start attack if not already attacking
             if self.db.aggressive and not self.ndb.is_attacking:
                 self.start_attacking()
+
 
     def at_new_arrival(self, new_character):
         """
