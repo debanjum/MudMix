@@ -1,5 +1,5 @@
 # MudMix
-Mixed Reality Game Engine using Evennia, OpenStreeMaps and Wearables
+Mixed Reality Game Engine using Evennia, OpenStreetMaps and Wearables
 
 # Dependencies
 1. [Evennia](http://www.evennia.com) # MUD Server
